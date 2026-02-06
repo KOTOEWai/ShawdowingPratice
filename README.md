@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shadowing English Learning App
 
-## Getting Started
+* Key Features
 
-First, run the development server:
+1. Smart Video Player
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+ * Video.js & YouTube Integration: YouTube API ကို အသုံးပြု၍ ဗီဒီယိုများကို ချောမွေ့စွာ ဖွင့်နိုင်ခြင်း။
+ * Playback Speed Control: Shadowing လုပ်ရာတွင် အဆင်ပြေစေရန် အသံကို အနှေး/အမြန် (0.5x မှ 1.5x အထိ) စိတ်ကြိုက် ပြောင်းလဲနိုင်ခြင်း။
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Interactive Transcript
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+ * Auto-Scroll System: ဗီဒီယိုတွင် ပြောနေသော အသံနှင့်အညီ Transcript စာသားများက အလိုအလျောက် Scroll ဖြစ်ပြီး Highlighting ပြပေးခြင်း။
+ * Click-to-Seek: Transcript ရှိ စာကြောင်းများကို နှိပ်လိုက်ရုံဖြင့် ဗီဒီယို၏ သက်ဆိုင်ရာ အချိန်သို့ တိုက်ရိုက် ရောက်ရှိသွားခြင်း။
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Word Explorer
+ * Instant Meaning: Transcript ရှိ စကားလုံးများကို နှိပ်လိုက်ရုံဖြင့် အဓိပ္ပာယ်နှင့် အသံထွက်ကို ပြသပေးသော Popover စနစ်။
+ * Audio Pronunciation: စကားလုံးတစ်လုံးချင်းစီ၏ အသံထွက်ကို နားထောင်နိုင်ခြင်း။
 
-## Learn More
+4. Vocabulary Bank
 
-To learn more about Next.js, take a look at the following resources:
+* Category-based Discovery: Movies, Business, IELTS နှင့် Daily Conversation စသည့် Category အလိုက် ဗီဒီယိုများကို စနစ်တကျ       ရှာဖွေနိုင်ခြင်း။
+* Dynamic Routing: Next.js Dynamic Slugs ကို အသုံးပြုထားသဖြင့် Topic အသစ်များကို လွယ်ကူစွာ ထပ်တိုးနိုင်ခြင်း။
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. Dynamic Topics
+ Category အလိုက် (Movies, Business, IELTS) ဗီဒီယိုများကို စနစ်တကျ ရှာဖွေနိုင်ခြင်း။
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+ ## 🚀 Tech Stack
 
-## Deploy on Vercel
+* Framework: Next.js 15 (App Router)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+* Styling: Tailwind CSS
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* Animation: Framer Motion
+
+* Video Library: Video.js
+
+* Icons: Lucide React
