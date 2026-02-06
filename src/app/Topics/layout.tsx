@@ -62,7 +62,7 @@ export default function TopicsLayout({ children }: { children: React.ReactNode }
               }`}
             >
               {Icon ? <Icon className="w-5 h-5" /> : null}
-              <span className="text-[25px] font-medium">{topic.label.split(" ")[0]}</span>
+             
             </Link>
           );
         })}
