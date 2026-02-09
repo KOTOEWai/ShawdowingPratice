@@ -44,10 +44,10 @@ export default function Nav() {
       {open && (
         <div className="absolute top-17.5 left-0 w-full bg-linear-to-r from-indigo-700 to-violet-500 p-6 md:hidden">
           <ul className="flex flex-col gap-4 text-white">
-            <li>Home</li>
-            <li>Services</li>
-            <li>Portfolio</li>
-            <li>Pricing</li>
+        <li><Link href="/" className="hover:text-white/70">Home</Link></li>
+        <li><Link  href="/Topics" className="hover:text-white/70">Topics</Link></li>
+        <li><Link href="/Vocabulary" className="hover:text-white/70">Vocabulary</Link></li>
+        <li><Link href="/" className="hover:text-white/70">Pricing</Link></li>
           </ul>
 
           <button className="bg-white text-gray-700 mt-6 w-40 h-11 rounded-full">

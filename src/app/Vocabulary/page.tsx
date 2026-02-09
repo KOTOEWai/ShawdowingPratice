@@ -49,35 +49,41 @@ export default function VocabularyPage() {
     <div className="min-h-screen bg-slate-950 text-slate-200 p-6 md:p-12">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white">My Vocabulary</h1>
-            <p className="text-slate-400 mt-1">Total: {vocabList.length} words saved</p>
-          </div>
-          <div className="flex gap-4">
-            {vocabList.length > 0 && (
-           <button
-           onClick={clearAllVocabulary}
-           className="px-4 py-2 text-xs font-semibold text-red-400 border border-red-400/30 hover:bg-red-400/10 rounded-xl transition-all"
-            >
-           Clear All
-          </button>
-           )}
-          <Link 
-            href="/Topics" 
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm transition-colors"
-          >
-            Back to Practice
-          </Link>
-          
-           <Link 
-            href="/Vocabulary/Flashcards" 
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm transition-colors"
-          >
-            Go to FleshCards
-          </Link>
-          </div>
-        </div>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 mb-8 bg-slate-900/40 p-5 rounded-3xl border border-slate-800">
+  {/* Left Side: Title & Counter */}
+  <div>
+    <h1 className="text-xl lg:text-3xl font-bold text-white tracking-tight">My Vocabulary</h1>
+    <p className="text-sm text-slate-500 lg:text-slate-400 mt-1">
+      Total: <span className="text-blue-400 font-mono">{vocabList.length}</span> words saved
+    </p>
+  </div>
+
+  {/* Right Side: Action Buttons */}
+  <div className="flex flex-wrap items-center gap-3">
+    {vocabList.length > 0 && (
+      <button
+        onClick={clearAllVocabulary}
+        className="flex-1 md:flex-none px-4 py-2.5 text-xs font-semibold text-red-400 border border-red-400/30 hover:bg-red-400/10 rounded-xl transition-all active:scale-95"
+      >
+        Clear All
+      </button>
+    )}
+    
+    <Link 
+      href="/Topics" 
+      className="flex-1 md:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs lg:text-sm transition-colors text-center whitespace-nowrap"
+    >
+      Back to Practice
+    </Link>
+    
+    <Link 
+      href="/Vocabulary/Flashcards" 
+      className="flex-1 md:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs lg:text-sm font-medium transition-all text-center whitespace-nowrap shadow-lg shadow-blue-500/20 active:scale-95"
+    >
+      Practice Flashcards
+    </Link>
+  </div>
+</div>
 
         {/* Word List */}
         {vocabList.length === 0 ? (
