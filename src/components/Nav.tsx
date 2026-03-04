@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, User as UserIcon, LogIn } from "lucide-react";
+import { LogOut, User as UserIcon, LogIn, ArrowRight } from "lucide-react";
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const { data: session } = useSession();
@@ -33,14 +33,17 @@ export default function Nav() {
       <div className="md:flex hidden items-center gap-4">
         {session ? (
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-2xl">
+            <Link
+              href="/profile"
+              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all"
+            >
               {session.user?.image ? (
                 <Image src={session.user.image} width={24} height={24} className="rounded-full" alt="avatar" />
               ) : (
                 <UserIcon size={20} className="text-indigo-400" />
               )}
               <span className="text-sm font-bold text-white max-w-[100px] truncate">{session.user?.name}</span>
-            </div>
+            </Link>
             <button
               onClick={() => signOut()}
               className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
@@ -82,17 +85,22 @@ export default function Nav() {
 
           {session ? (
             <div className="mt-8 space-y-4">
-              <div className="flex items-center gap-3 p-4 glass-card border-white/10 rounded-2xl">
+              <Link
+                href="/profile"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 p-4 glass-card border-white/10 rounded-2xl hover:bg-white/5 transition-all"
+              >
                 {session.user?.image ? (
                   <Image src={session.user.image} width={40} height={40} className="rounded-full" alt="avatar" />
                 ) : (
                   <UserIcon size={32} className="text-indigo-400" />
                 )}
-                <div>
+                <div className="flex-1">
                   <p className="font-black text-white">{session.user?.name}</p>
                   <p className="text-xs text-slate-500">{session.user?.email}</p>
                 </div>
-              </div>
+                <ArrowRight size={18} className="text-slate-500" />
+              </Link>
               <button
                 onClick={() => signOut()}
                 className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600/20 text-rose-400 rounded-2xl font-bold border border-rose-500/20"
