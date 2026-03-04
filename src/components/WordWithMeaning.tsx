@@ -1,6 +1,6 @@
 "use client";
 
-import {  DictionaryEntry,  } from "@/app/Types/Type";
+import { DictionaryEntry } from "@/app/Types/Type";
 import React, { useState, useEffect, useRef } from "react";
 import PopoverContent from "./PopoverContext";
 
@@ -18,7 +18,7 @@ export default function WordWithMeaning({ word }: { word: string }) {
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const [isSaved, setIsSaved] = useState(false);
-  
+
   const containerRef = useRef<HTMLSpanElement>(null);
   const cleanWord = getCleanWord(word);
 
@@ -36,7 +36,7 @@ export default function WordWithMeaning({ word }: { word: string }) {
     const rect = e.currentTarget.getBoundingClientRect();
     setCoords({ top: rect.top, left: rect.left + rect.width / 2 });
     setShow(!show);
-    
+
     if (data || loading) return;
 
     setLoading(true);
@@ -66,7 +66,7 @@ export default function WordWithMeaning({ word }: { word: string }) {
         addedAt: new Date().toISOString()
       }];
     }
-    
+
     localStorage.setItem("vocabulary", JSON.stringify(updatedList));
     setIsSaved(!isSaved);
   };
@@ -86,29 +86,27 @@ export default function WordWithMeaning({ word }: { word: string }) {
 
   return (
     <span className="relative inline-block mx-0.5" ref={containerRef}>
-      <span 
+      <span
         onClick={handleLookup}
-        className={`cursor-pointer hover:text-blue-400 transition-colors border-b border-dotted ${
-          show ? "text-blue-400 border-blue-400" : "border-slate-600"
-        }`}
+        className={`cursor-pointer hover:text-indigo-400 transition-colors border-b border-dotted ${show ? "text-indigo-400 border-indigo-400" : "border-slate-600"
+          }`}
       >
         {word}
       </span>
 
       {show && (
-        <PopoverContent 
-          data={data} 
-          loading={loading} 
-          coords={coords} 
-          isSaved={isSaved} 
-          onSave={toggleSave} 
+        <PopoverContent
+          data={data}
+          loading={loading}
+          coords={coords}
+          isSaved={isSaved}
+          onSave={toggleSave}
           cleanWord={cleanWord}
         />
       )}
     </span>
   );
 }
-
 
 
 

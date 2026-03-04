@@ -22,9 +22,9 @@ const faqs = [
 ];
 
 const FAQ = () => {
-  const [openIndex, setOpenIndex] = useState(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-  const toggleFAQ = (index:any) => {
+  const toggleFAQ = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
   };
 
@@ -32,39 +32,40 @@ const FAQ = () => {
     <section className="py-2 ">
       <div className="max-w-3xl mx-auto px-6">
         <div className="text-center mb-12">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-              <HelpCircle size={24} />
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center text-indigo-400 border-indigo-500/20">
+              <HelpCircle size={32} />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">အမေးများသော မေးခွန်းများ</h2>
-          <p className="text-slate-600">Shadowing App နဲ့ ပတ်သက်ပြီး သိလိုသမျှကို ဤနေရာတွင် ရှာဖွေနိုင်ပါတယ်။</p>
+          <h2 className="text-2xl lg:text-3xl font-black text-white mb-6">အမေးများသော <span className="text-gradient">မေးခွန်းများ</span></h2>
+          <p className="text-slate-400 text-lg">Shadowing App နဲ့ ပတ်သက်ပြီး သိလိုသမျှကို ဤနေရာတွင် ရှာဖွေနိုင်ပါတယ်။</p>
         </div>
 
         <div className="space-y-4">
           {faqs.map((faq, index) => (
-            <div 
-              key={index} 
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden transition-all duration-300 shadow-sm"
+            <div
+              key={index}
+              className="glass-card rounded-3xl overflow-hidden transition-all duration-500 shadow-2xl border-white/5"
             >
-              <button 
+              <button
                 onClick={() => toggleFAQ(index)}
-                className="w-full flex items-center justify-between p-6 text-left hover:bg-slate-50 transition-colors"
+                className={`w-full flex items-center justify-between p-8 text-left transition-all duration-300 ${openIndex === index ? 'bg-indigo-500/10' : 'hover:bg-white/5'
+                  }`}
               >
-                <span className="font-bold text-slate-800 pr-4">{faq.question}</span>
+                <span className={`text-lg font-bold transition-colors ${openIndex === index ? 'text-indigo-400' : 'text-slate-200'
+                  }`}>{faq.question}</span>
                 {openIndex === index ? (
-                  <ChevronUp className="text-blue-600 shrink-0" size={20} />
+                  <ChevronUp className="text-indigo-400 shrink-0" size={24} />
                 ) : (
-                  <ChevronDown className="text-slate-400 shrink-0" size={20} />
+                  <ChevronDown className="text-slate-500 shrink-0" size={24} />
                 )}
               </button>
-              
-              <div 
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                }`}
+
+              <div
+                className={`overflow-hidden transition-all duration-500 ease-in-out ${openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
               >
-                <div className="p-6 pt-0 text-slate-600 border-t border-slate-50 leading-relaxed">
+                <div className="p-8 pt-0 text-slate-400 border-t border-white/5 leading-relaxed font-medium">
                   {faq.answer}
                 </div>
               </div>

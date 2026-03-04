@@ -2,10 +2,12 @@
 
 import { TranscriptItem } from "@/app/Types/Type";
 import WordWithMeaning from "@/components/WordWithMeaning";
+import VoiceRecorder from "@/components/VoiceRecorder";
 import React, { use, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import videojs from "video.js";
 import Player from "video.js/dist/types/player";
- // Import type
+// Import type
 import "video.js/dist/video-js.css";
 import "videojs-youtube";
 
@@ -30,6 +32,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         setLoading(true);
         const res = await fetch(`/api/FetchTranscript?videoId=${id}`);
         const data = await res.json();
+        console.log("", data);
         setTranscript(Array.isArray(data) ? data : data?.content || []);
       } catch (err) {
         console.error("Failed to load transcript", err);
@@ -47,7 +50,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     // Create a video element dynamically to avoid re-init issues
     const videoElement = document.createElement("video-js");
     videoElement.classList.add("vjs-big-play-centered", "vjs-theme-city"); // Theme choice
-    
+
     videoRef.current.appendChild(videoElement);
 
     const player = (playerRef.current = videojs(videoElement, {
@@ -68,7 +71,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           const next = prevTranscript[i + 1];
           return currentMs >= item.offset && (!next || currentMs < next.offset);
         });
-        
+
         setActiveIndex((prevIndex) => {
           if (index !== prevIndex) return index;
           return prevIndex;
@@ -116,7 +119,20 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <div className="aspect-video rounded-3xl overflow-hidden  border border-slate-800 bg-black">
           <div ref={videoRef} data-vjs-player />
         </div>
-        
+
+        <AnimatePresence>
+          {activeIndex !== -1 && transcript[activeIndex] && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="mt-4"
+            >
+              <VoiceRecorder originalText={transcript[activeIndex].text} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </div>
 
       <div className="bg-slate-900 rounded-3xl border border-slate-800 flex flex-col h-120 md:h-135.5   shadow-2xl">
@@ -127,7 +143,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
           {loading ? (
             <div className="space-y-2 animate-pulse">
-               {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 bg-slate-800/50 rounded-xl" />)}
+              {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-slate-800/50 rounded-xl" />)}
             </div>
           ) : (
             transcript.map((item, index) => (
@@ -137,8 +153,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 onClick={() => handleSeek(item.offset)}
                 className={`p-2 rounded-xl cursor-pointer transition-all duration-300 border
                   ${index === activeIndex
-                      ? "bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/20 translate-x-1"
-                      : "border-transparent hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                    ? "bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/20 translate-x-1"
+                    : "border-transparent hover:bg-slate-800 text-slate-400 hover:text-slate-200"
                   }
                 `}
               >
@@ -146,7 +162,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   {formatTime(item.offset)}
                 </p>
                 <p className={`text-base leading-relaxed border-b border-slate-800 ${index === activeIndex ? "text-white font-medium" : ""}`}>
-                 {item.text.split(" ").map((word, wIdx) => (
+                  {item.text.split(" ").map((word, wIdx) => (
                     <WordWithMeaning key={wIdx} word={word} />
                   ))}
                 </p>

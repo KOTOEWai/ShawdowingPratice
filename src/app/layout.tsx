@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 import Nav from "@/components/Nav";
+import AuthProvider from "@/components/AuthProvider";
+
 
 
 
@@ -19,10 +21,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={` antialiased`}
+        className={`antialiased bg-mesh min-h-screen font-sans`}
       >
-        <Nav/>
-        {children}
+        <AuthProvider>
+          <Nav />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

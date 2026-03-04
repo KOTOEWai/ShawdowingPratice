@@ -1,6 +1,6 @@
 import React from 'react';
 import { Star, Quote } from 'lucide-react';
-import Image from 'next/image'; 
+import Image from 'next/image';
 const testimonials = [
   {
     name: "မောင်မောင်",
@@ -27,26 +27,26 @@ const testimonials = [
 
 const Testimonials = () => {
   return (
-    <section className="py-24 bg-white overflow-hidden">
+    <section className="py-24  overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 lg:px-20">
-        <div className="text-center mb-16">
-          <h2 className="text-blue-600 font-semibold tracking-wide uppercase text-sm mb-3">
+        <div className="text-center mb-20">
+          <h2 className="text-indigo-400 font-black tracking-widest uppercase text-sm mb-4">
             Real Stories
           </h2>
-          <h3 className="text-3xl lg:text-4xl font-bold text-slate-900">
-            ကျွန်ုပ်တို့၏ သင်ယူသူများ ပြောစကား
+          <h3 className="text-4xl lg:text-6xl font-black text-white">
+            ကျွန်ုပ်တို့၏ သင်ယူသူများ <span className="text-gradient">ပြောစကား</span>
           </h3>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {testimonials.map((item, index) => (
-            <div 
-              key={index} 
-              className="relative p-8 rounded-3xl bg-slate-50 border border-slate-100 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl group"
+            <div
+              key={index}
+              className="relative p-10 rounded-[2.5rem] glass-card border-white/5 transition-all duration-500 hover:-translate-y-3 hover:shadow-[0_20px_50px_rgba(79,70,229,0.15)] group overflow-hidden"
             >
               {/* Quote Icon Background */}
-              <Quote className="absolute top-6 right-8 text-slate-200 group-hover:text-blue-100 transition-colors" size={40} />
-              
+              <Quote className="absolute top-8 right-10 text-indigo-500/10 group-hover:text-indigo-500/20 transition-all duration-500 scale-150 rotate-12" size={60} />
+
               {/* Stars */}
               <div className="flex gap-1 mb-6">
                 {[...Array(item.rating)].map((_, i) => (
@@ -55,22 +55,22 @@ const Testimonials = () => {
               </div>
 
               {/* Content */}
-              <p className="text-slate-700 leading-relaxed mb-8 italic">
+              <p className="text-slate-300 text-lg leading-relaxed mb-10 font-medium italic relative z-10">
                 &quot;{item.content}&quot;
               </p>
 
               {/* User Info */}
               <div className="flex items-center gap-4">
                 <Image
-                  src={item.image} 
+                  src={item.image}
                   width={200}
                   height={200}
-                  alt={item.name} 
-                  className="w-12 h-12 rounded-full bg-blue-100 border-2 border-white shadow-sm"
+                  alt={item.name}
+                  className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-white/10 shadow-lg object-cover"
                 />
                 <div>
-                  <h4 className="font-bold text-slate-900">{item.name}</h4>
-                  <p className="text-xs text-slate-500 font-medium">{item.role}</p>
+                  <h4 className="font-black text-white text-lg">{item.name}</h4>
+                  <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider">{item.role}</p>
                 </div>
               </div>
             </div>

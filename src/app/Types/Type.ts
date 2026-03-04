@@ -27,6 +27,7 @@ export interface TranscriptItem {
 export interface DictionaryEntry {
   word: string;
   phonetic?: string;
+  synonyms?: string[]; // ဒီစာကြောင်းလေး ထည့်ပေးပါ
   phonetics: {
     text?: string;
     audio?: string;
@@ -38,7 +39,6 @@ export interface DictionaryEntry {
     }[];
   }[];
 }
-
 
 export type PopOverProps = {
   data: DictionaryEntry | null;
