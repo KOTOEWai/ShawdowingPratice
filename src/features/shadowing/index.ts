@@ -3,6 +3,9 @@ export { default as CustomVideoModal } from "./components/CustomVideoModal";
 export { default as ShortcutsModal } from "./components/ShortcutsModal";
 export { default as LeaderboardModal } from "./components/LeaderboardModal";
 export { LessonCompleteModal } from "./components/LessonCompleteModal";
+export { StreakTracker } from "./components/StreakTracker";
 export * from "./types";
 export * from "./utils/transcriptSync";
+export * from "./utils/streakManager";
+
 

@@ -8,6 +8,11 @@ import {
   ShortcutsModal,
   LeaderboardModal,
   LessonCompleteModal,
+  StreakTracker,
+  loadStreakData,
+  recordMasteredLineProgress,
+  StreakData,
+  DAILY_STREAK_TARGET,
 } from "@/features/shadowing";
 import { WordWithMeaning } from "@/features/vocabulary";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
@@ -27,6 +32,7 @@ import {
   Volume2,
   CheckCircle2,
   Flame,
+  Snowflake,
   Target,
   Keyboard,
   Languages,
@@ -73,9 +79,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   // Mastered Lines State (Persisted in localStorage)
   const [masteredIndices, setMasteredIndices] = useState<Set<number>>(new Set());
 
-  // Daily Streak & Target State
-  const [streak, setStreak] = useState<number>(1);
-  const [todayMastered, setTodayMastered] = useState<number>(0);
+  // Daily Streak & Target State (with 7-Day Flame & Freeze protection)
+  const [streakData, setStreakData] = useState<StreakData>(loadStreakData);
+  const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
 
   // Lesson Completion State (Method 1: >=80% Mastery + Method 2: Video Playthrough)
   const [isLessonCompleted, setIsLessonCompleted] = useState<boolean>(false);
@@ -128,24 +134,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         isLessonCompletedRef.current = true;
       }
 
-      // Load streak info
-      const streakSaved = localStorage.getItem("shadowing_streak_data");
-      const todayStr = new Date().toISOString().slice(0, 10);
-      if (streakSaved) {
-        const parsed = JSON.parse(streakSaved);
-        if (parsed.lastDate === todayStr) {
-          setStreak(parsed.streak || 1);
-          setTodayMastered(parsed.todayCount || 0);
-        } else {
-          const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-          if (parsed.lastDate === yesterday) {
-            setStreak((parsed.streak || 1) + 1);
-          } else {
-            setStreak(1);
-          }
-          setTodayMastered(0);
-        }
-      }
+      // Load streak info with Freeze auto-evaluation
+      const currentStreak = loadStreakData();
+      setStreakData(currentStreak);
 
       // Track active practice seconds (for real Hours Studied stats)
       const studyInterval = setInterval(() => {
@@ -417,14 +408,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               triggerLessonCompletion("mastery");
             }
 
-            setTodayMastered((c) => {
-              const updated = c + 1;
-              const todayStr = new Date().toISOString().slice(0, 10);
-              localStorage.setItem(
-                "shadowing_streak_data",
-                JSON.stringify({ lastDate: todayStr, streak, todayCount: updated })
-              );
-              return updated;
+            // Advance Streak progress (Daily target of 3 lines + freeze protection)
+            setStreakData((prevData) => {
+              const { updatedData } = recordMasteredLineProgress(prevData);
+              return updatedData;
             });
           }
         } catch (e) {
@@ -434,7 +421,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         return next;
       });
     },
-    [id, streak, triggerLessonCompletion]
+    [id, triggerLessonCompletion]
   );
 
   // Toggle Bookmark Lesson to Playlist
@@ -553,7 +540,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       <LeaderboardModal
         isOpen={showLeaderboard}
         onClose={() => setShowLeaderboard(false)}
-        userStreak={streak}
+        userStreak={streakData.streak}
         userMasteredCount={masteredIndices.size}
       />
 
@@ -561,19 +548,35 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       <div className="lg:col-span-2 space-y-4">
         {/* Top Activity & Gamification Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#33323E] rounded-xl px-4 py-2.5 shadow-md">
-          <div className="flex items-center gap-4 text-xs font-mono">
-            {/* Streak */}
-            <div className="flex items-center gap-1.5 text-amber-400 font-semibold" title="Consecutive Daily Practice Streak">
-              <Flame size={15} className="fill-amber-400" />
-              <span>{streak}d Streak</span>
-            </div>
+          <div className="flex items-center gap-3 text-xs font-mono">
+            {/* Interactive Streak Button with Flame & Freeze */}
+            <button
+              onClick={() => setShowStreakModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#181622] hover:bg-[#1F132A] border border-[#33323E] hover:border-amber-500/50 text-amber-400 font-semibold text-xs font-mono transition-all cursor-pointer"
+              title="Click to view 7-Day Streak & Freeze Status"
+            >
+              <Flame size={15} className={`fill-amber-400 ${streakData.isGoalMet ? "animate-pulse" : ""}`} />
+              <span>{streakData.streak}d Streak</span>
+              {streakData.freezes > 0 && (
+                <span className="text-[10px] text-cyan-400 flex items-center gap-0.5 ml-1" title={`${streakData.freezes} Streak Freeze available`}>
+                  <Snowflake size={11} />
+                  {streakData.freezes}
+                </span>
+              )}
+            </button>
 
             <div className="h-3.5 w-px bg-[#33323E]" />
 
-            {/* Daily Goal */}
-            <div className="flex items-center gap-1.5 text-[#A667E4]" title="Today's Mastered Sentences Goal">
-              <Target size={14} />
-              <span>Today: {todayMastered}/10</span>
+            {/* Daily Goal: Master 3 lines per day */}
+            <div
+              className="flex items-center gap-1.5 text-xs font-mono cursor-pointer"
+              onClick={() => setShowStreakModal(true)}
+              title="Daily Goal: Master 3 lines today to ignite flame"
+            >
+              <Target size={14} className={streakData.isGoalMet ? "text-[#42946E]" : "text-[#A667E4]"} />
+              <span className={streakData.isGoalMet ? "text-[#42946E] font-medium" : "text-[#DCDCE0]"}>
+                Today: {streakData.todayCount}/{DAILY_STREAK_TARGET}
+              </span>
             </div>
           </div>
 
@@ -1032,6 +1035,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         masteredCount={masteredIndices.size}
         totalLines={transcript.length}
         reason={completionReason}
+      />
+
+      {/* 7-Day Flame & Freeze Tracker Modal */}
+      <StreakTracker
+        isModal
+        isOpen={showStreakModal}
+        onClose={() => setShowStreakModal(false)}
+        data={streakData}
       />
     </div>
   );

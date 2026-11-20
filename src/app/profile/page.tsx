@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { StreakTracker, loadStreakData, StreakData } from "@/features/shadowing";
 
 interface SavedLesson {
   id: string;
@@ -46,8 +47,7 @@ export default function ProfilePage() {
   const [savedLessons, setSavedLessons] = useState<SavedLesson[]>([]);
   const [completedLessons, setCompletedLessons] = useState<CompletedLesson[]>([]);
   const [activeTab, setActiveTab] = useState<"completed" | "saved">("completed");
-  const [streakCount, setStreakCount] = useState(1);
-  const [masteredCount, setMasteredCount] = useState(0);
+  const [streakData, setStreakData] = useState<StreakData>(loadStreakData);
   const [studyHours, setStudyHours] = useState("0.5");
 
   useEffect(() => {
@@ -60,12 +60,8 @@ export default function ProfilePage() {
       );
       setCompletedLessons(completed);
 
-      const streakData = localStorage.getItem("shadowing_streak_data");
-      if (streakData) {
-        const parsed = JSON.parse(streakData);
-        if (parsed.streak) setStreakCount(parsed.streak);
-        if (parsed.todayCount) setMasteredCount(parsed.todayCount);
-      }
+      const sData = loadStreakData();
+      setStreakData(sData);
 
       const studySec = parseInt(localStorage.getItem("shadowing_study_seconds") || "0", 10);
       if (studySec > 0) {
@@ -116,8 +112,8 @@ export default function ProfilePage() {
 
   const stats = [
     { label: "Lessons Done", value: String(completedLessons.length), icon: <BookOpen size={20} className="text-[#82AAFF]" /> },
-    { label: "Day Streak", value: String(streakCount), icon: <Flame size={20} className="text-orange-400" /> },
-    { label: "Mastered Lines", value: String(masteredCount), icon: <Award size={20} className="text-[#A667E4]" /> },
+    { label: "Day Streak", value: String(streakData.streak), icon: <Flame size={20} className="text-orange-400" /> },
+    { label: "Mastered Lines", value: String(streakData.todayCount), icon: <Award size={20} className="text-[#A667E4]" /> },
     { label: "Hours Studied", value: studyHours, icon: <Clock size={20} className="text-[#42946E]" /> },
   ];
 
@@ -223,6 +219,9 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
+
+            {/* 7-Day Flame & Streak Freeze Tracker */}
+            <StreakTracker data={streakData} />
 
             {/* Lessons & Playlists Section */}
             <div className="bg-[#1F132A] border border-[#33323E] p-6 sm:p-8 rounded-xl shadow-xl">

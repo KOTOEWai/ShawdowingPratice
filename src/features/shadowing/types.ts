@@ -5,3 +5,15 @@ export interface TranscriptItem {
 }
 
 export type ShadowingMode = "normal" | "echo" | "blind";
+
+export interface StreakData {
+  streak: number;
+  bestStreak: number;
+  lastDate: string; // YYYY-MM-DD
+  todayCount: number;
+  isGoalMet: boolean;
+  freezes: number;
+  freezeUsedDates: string[];
+  activeDates: string[];
+}
+
