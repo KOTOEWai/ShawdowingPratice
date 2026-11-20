@@ -205,6 +205,19 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     [id]
   );
 
+  // Uncomplete Lesson (Reset status and remove from completed records)
+  const uncompleteLesson = useCallback(() => {
+    setIsLessonCompleted(false);
+    isLessonCompletedRef.current = false;
+    try {
+      const existing = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
+      const filtered = existing.filter((l: { id: string }) => l.id !== id);
+      localStorage.setItem("completed_shadowing_lessons", JSON.stringify(filtered));
+    } catch (e) {
+      console.warn("Completion uncomplete error:", e);
+    }
+  }, [id]);
+
   /* 1. Fetch Transcript & filter out [Music], [Applause], ♪ */
   useEffect(() => {
     async function fetchTranscript() {
@@ -565,20 +578,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Completion Status Badge / Button */}
+            {/* Completion Status Badge / Button with Uncomplete action */}
             {isLessonCompleted ? (
-              <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#26543F]/80 border border-[#367859] text-[#42946E] text-[11px] font-mono font-medium"
-                title="Lesson Completed! (80%+ mastery or full playthrough)"
+              <button
+                onClick={uncompleteLesson}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#26543F]/80 hover:bg-rose-950/70 border border-[#367859] hover:border-rose-500/50 text-[#42946E] hover:text-rose-300 text-[11px] font-mono font-medium transition-all cursor-pointer group"
+                title="Lesson Done! Click to mark as uncompleted / reset"
               >
-                <CheckCircle2 size={13} />
-                <span>Lesson Done</span>
-              </div>
+                <CheckCircle2 size={13} className="group-hover:hidden" />
+                <RotateCcw size={12} className="hidden group-hover:inline text-rose-400" />
+                <span className="group-hover:hidden">Lesson Done</span>
+                <span className="hidden group-hover:inline">Uncomplete</span>
+              </button>
             ) : (
               <button
                 onClick={() => triggerLessonCompletion("manual")}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#42946E] text-[11px] font-mono text-[#A1A0AB] hover:text-[#42946E] transition-all cursor-pointer"
-                title="Mark this lesson as done manually"
+                title="Mark this lesson as done"
               >
                 <Check size={12} />
                 <span className="hidden sm:inline">Mark Done</span>

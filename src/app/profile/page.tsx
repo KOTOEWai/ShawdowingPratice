@@ -20,6 +20,8 @@ import {
   Play,
   CheckCircle2,
   Trophy,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -85,6 +87,32 @@ export default function ProfilePage() {
   if (!session) {
     redirect("/login");
   }
+
+  const handleUncomplete = (e: React.MouseEvent, lessonId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const existing = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
+      const updated = existing.filter((l: { id: string }) => l.id !== lessonId);
+      localStorage.setItem("completed_shadowing_lessons", JSON.stringify(updated));
+      setCompletedLessons(updated);
+    } catch (err) {
+      console.warn("Uncomplete error:", err);
+    }
+  };
+
+  const handleRemoveSaved = (e: React.MouseEvent, lessonId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const existing = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
+      const updated = existing.filter((l: { id: string }) => l.id !== lessonId);
+      localStorage.setItem("saved_study_lessons", JSON.stringify(updated));
+      setSavedLessons(updated);
+    } catch (err) {
+      console.warn("Remove saved error:", err);
+    }
+  };
 
   const stats = [
     { label: "Lessons Done", value: String(completedLessons.length), icon: <BookOpen size={20} className="text-[#82AAFF]" /> },
@@ -259,17 +287,19 @@ export default function ProfilePage() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {completedLessons.map((lesson) => (
-                        <Link
+                        <div
                           key={lesson.id}
-                          href={`/lessons/shadowing/${lesson.id}`}
                           className="flex items-center justify-between p-3.5 rounded-lg bg-[#13111C] border border-[#33323E] hover:border-[#42946E]/50 transition-all group"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-[#26543F]/60 border border-[#367859] flex items-center justify-center text-[#42946E]">
+                          <Link
+                            href={`/lessons/shadowing/${lesson.id}`}
+                            className="flex items-center gap-3 flex-1 min-w-0"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-[#26543F]/60 border border-[#367859] flex items-center justify-center text-[#42946E] shrink-0">
                               <CheckCircle2 size={16} />
                             </div>
-                            <div>
-                              <div className="text-xs sm:text-sm font-medium text-white group-hover:text-[#42946E] transition-colors">
+                            <div className="truncate">
+                              <div className="text-xs sm:text-sm font-medium text-white group-hover:text-[#42946E] transition-colors truncate">
                                 {lesson.title}
                               </div>
                               <div className="text-[10px] font-mono text-[#6C6B7B]">
@@ -279,11 +309,25 @@ export default function ProfilePage() {
                                 {lesson.reason && ` • by ${lesson.reason}`}
                               </div>
                             </div>
+                          </Link>
+
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <button
+                              onClick={(e) => handleUncomplete(e, lesson.id)}
+                              className="px-2 py-1 rounded bg-[#181622] hover:bg-rose-950/60 border border-[#33323E] hover:border-rose-500/50 text-[#6C6B7B] hover:text-rose-300 text-[10px] font-mono transition-all flex items-center gap-1 cursor-pointer"
+                              title="Uncomplete and remove from completed records"
+                            >
+                              <RotateCcw size={11} />
+                              <span className="hidden sm:inline">Uncomplete</span>
+                            </button>
+                            <Link
+                              href={`/lessons/shadowing/${lesson.id}`}
+                              className="text-[10px] font-mono text-[#42946E] hover:underline"
+                            >
+                              Practice ↗
+                            </Link>
                           </div>
-                          <span className="text-[10px] font-mono text-[#42946E] group-hover:underline">
-                            Practice ↗
-                          </span>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -300,21 +344,36 @@ export default function ProfilePage() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {savedLessons.map((lesson) => (
-                        <Link
+                        <div
                           key={lesson.id}
-                          href={`/lessons/shadowing/${lesson.id}`}
                           className="flex items-center justify-between p-3.5 rounded-lg bg-[#13111C] border border-[#33323E] hover:border-[#853BCE]/50 transition-all group"
                         >
-                          <div className="flex items-center gap-2.5">
-                            <Play size={14} className="text-[#A667E4] group-hover:translate-x-0.5 transition-transform" />
-                            <span className="text-xs sm:text-sm font-medium text-white group-hover:text-[#A667E4]">
+                          <Link
+                            href={`/lessons/shadowing/${lesson.id}`}
+                            className="flex items-center gap-2.5 flex-1 min-w-0"
+                          >
+                            <Play size={14} className="text-[#A667E4] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                            <span className="text-xs sm:text-sm font-medium text-white group-hover:text-[#A667E4] truncate">
                               {lesson.title}
                             </span>
+                          </Link>
+
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <button
+                              onClick={(e) => handleRemoveSaved(e, lesson.id)}
+                              className="p-1.5 rounded hover:bg-rose-950/60 text-[#6C6B7B] hover:text-rose-400 transition-colors cursor-pointer"
+                              title="Remove from playlist"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                            <Link
+                              href={`/lessons/shadowing/${lesson.id}`}
+                              className="text-[10px] font-mono text-[#6C6B7B] group-hover:text-white"
+                            >
+                              Practice ↗
+                            </Link>
                           </div>
-                          <span className="text-[10px] font-mono text-[#6C6B7B]">
-                            Practice ↗
-                          </span>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   )}
