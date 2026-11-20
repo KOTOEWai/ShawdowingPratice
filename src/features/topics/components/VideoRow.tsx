@@ -1,5 +1,5 @@
-import { VideoRowProps } from "@/app/Types/Type";
-import Topic from "./Topic";
+import { VideoRowProps } from "../types";
+import TopicGrid from "./TopicGrid";
 import Link from "next/link";
 
 export const VideoRow = ({ title, link, videos }: VideoRowProps) => (
@@ -13,6 +13,6 @@ export const VideoRow = ({ title, link, videos }: VideoRowProps) => (
         View all →
       </Link>
     </div>
-    <Topic videos={videos} />
+    <TopicGrid videos={videos} />
   </section>
 );

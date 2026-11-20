@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { LogOut, User as UserIcon, LogIn, ArrowRight, Plus } from "lucide-react";
-import CustomVideoModal from "@/components/CustomVideoModal";
+import { CustomVideoModal } from "@/features/shadowing";
 
 export default function Nav() {
   const [open, setOpen] = useState(false);

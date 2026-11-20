@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
-import AuthProvider from "@/components/AuthProvider";
+import { AuthProvider } from "@/features/auth";
 
 export const metadata: Metadata = {
   title: "Shadowing App - Master English Fluency",

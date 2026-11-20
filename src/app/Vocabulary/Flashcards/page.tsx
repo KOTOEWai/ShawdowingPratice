@@ -2,12 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-
-interface SavedWord {
-  word: string;
-  definition: string;
-  phonetic: string;
-}
+import { SavedWord } from "@/features/vocabulary";
 
 export default function FlashcardsPage() {
   const [cards, setCards] = useState<SavedWord[]>([]);

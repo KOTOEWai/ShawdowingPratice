@@ -1,8 +1,8 @@
 "use client";
 
-import { DictionaryEntry } from "@/app/Types/Type";
+import { DictionaryEntry } from "../types";
 import React, { useState, useEffect, useRef } from "react";
-import PopoverContent from "./PopoverContext";
+import PopoverContent from "../context/PopoverContext";
 
 const getCleanWord = (word: string) => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").toLowerCase();
 

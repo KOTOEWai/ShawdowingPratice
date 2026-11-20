@@ -3,13 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Download, FileSpreadsheet, Layers, Trash2 } from "lucide-react";
-
-interface SavedWord {
-  word: string;
-  definition: string;
-  phonetic: string;
-  addedAt: string;
-}
+import { SavedWord } from "@/features/vocabulary";
 
 export default function VocabularyPage() {
   const [vocabList, setVocabList] = useState<SavedWord[]>([]);

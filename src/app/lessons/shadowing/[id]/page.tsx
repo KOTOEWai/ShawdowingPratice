@@ -1,10 +1,15 @@
 "use client";
 
-import { TranscriptItem } from "@/app/Types/Type";
-import WordWithMeaning from "@/components/WordWithMeaning";
-import AudioComparison from "@/components/AudioComparison";
-import ShortcutsModal from "@/components/ShortcutsModal";
-import LeaderboardModal from "@/components/LeaderboardModal";
+import {
+  TranscriptItem,
+  findActiveTranscriptIndex,
+  cleanTranscriptItems,
+  AudioComparison,
+  ShortcutsModal,
+  LeaderboardModal,
+  LessonCompleteModal,
+} from "@/features/shadowing";
+import { WordWithMeaning } from "@/features/vocabulary";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import videojs from "video.js";
@@ -35,53 +40,6 @@ import {
   Headphones,
   Mic,
 } from "lucide-react";
-
-/**
- * Accurately finds the current transcript line based on video playback time (in ms).
- * 1. 120ms anticipation buffer catches initial consonant/voice onset.
- * 2. Overlap resolver picks the latest line that has started.
- * 3. Bridges short breath pauses (< 700ms) to prevent UI flickering between words.
- * 4. Clears active highlight during long silence/music (> 1000ms).
- */
-function findActiveTranscriptIndex(items: TranscriptItem[], currentMs: number): number {
-  if (!items || items.length === 0) return -1;
-  if (currentMs < items[0].offset - 150) return -1;
-
-  let bestIndex = -1;
-  let bestOffset = -1;
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const duration = item.duration && item.duration > 0 ? item.duration : 3000;
-    const start = item.offset - 120; // 120ms lead-in
-    const end = item.offset + duration + 200; // 200ms tail cushion
-
-    if (currentMs >= start && currentMs <= end) {
-      if (item.offset >= bestOffset) {
-        bestIndex = i;
-        bestOffset = item.offset;
-      }
-    }
-  }
-
-  if (bestIndex !== -1) return bestIndex;
-
-  // Short pause bridge between adjacent lines (< 700ms)
-  for (let i = items.length - 1; i >= 0; i--) {
-    const item = items[i];
-    const duration = item.duration && item.duration > 0 ? item.duration : 3000;
-    const end = item.offset + duration;
-    const nextItem = items[i + 1];
-
-    if (currentMs > end && currentMs - end <= 700) {
-      if (!nextItem || currentMs < nextItem.offset - 120) {
-        return i;
-      }
-    }
-  }
-
-  return -1;
-}
 
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -119,6 +77,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [streak, setStreak] = useState<number>(1);
   const [todayMastered, setTodayMastered] = useState<number>(0);
 
+  // Lesson Completion State (Method 1: >=80% Mastery + Method 2: Video Playthrough)
+  const [isLessonCompleted, setIsLessonCompleted] = useState<boolean>(false);
+  const isLessonCompletedRef = useRef<boolean>(false);
+  const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false);
+  const [completionReason, setCompletionReason] = useState<"mastery" | "playthrough" | "manual">("mastery");
+  const masteredIndicesRef = useRef<Set<number>>(new Set());
+
   const isLoopingRef = useRef(false);
   isLoopingRef.current = isLooping;
 
@@ -130,12 +95,16 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const isEchoPausingRef = useRef(false);
 
-  // Sync transcriptRef
+  // Sync transcriptRef & masteredIndicesRef
   useEffect(() => {
     transcriptRef.current = transcript;
   }, [transcript]);
 
-  // Load Saved Lessons & Mastered sentences from localStorage
+  useEffect(() => {
+    masteredIndicesRef.current = masteredIndices;
+  }, [masteredIndices]);
+
+  // Load Saved Lessons, Mastered sentences & Completion status from localStorage
   useEffect(() => {
     if (!id) return;
     try {
@@ -150,6 +119,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       // Check bookmark
       const savedLessons = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
       setIsBookmarked(savedLessons.some((l: { id: string }) => l.id === id));
+
+      // Check if already completed
+      const completedList = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
+      const alreadyDone = completedList.some((l: { id: string }) => l.id === id);
+      if (alreadyDone) {
+        setIsLessonCompleted(true);
+        isLessonCompletedRef.current = true;
+      }
 
       // Load streak info
       const streakSaved = localStorage.getItem("shadowing_streak_data");
@@ -169,6 +146,16 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           setTodayMastered(0);
         }
       }
+
+      // Track active practice seconds (for real Hours Studied stats)
+      const studyInterval = setInterval(() => {
+        try {
+          const sec = parseInt(localStorage.getItem("shadowing_study_seconds") || "0", 10);
+          localStorage.setItem("shadowing_study_seconds", String(sec + 10));
+        } catch {}
+      }, 10000);
+
+      return () => clearInterval(studyInterval);
     } catch (e) {
       console.warn("Storage load error:", e);
     }
@@ -189,6 +176,35 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     }
   }, []);
 
+  // Trigger Lesson Completion (Method 1: >=80% Mastery, Method 2: Video Playthrough, or Manual)
+  const triggerLessonCompletion = useCallback(
+    (reason: "mastery" | "playthrough" | "manual") => {
+      if (isLessonCompletedRef.current) return;
+      setIsLessonCompleted(true);
+      isLessonCompletedRef.current = true;
+      setCompletionReason(reason);
+      setShowCompletionModal(true);
+
+      try {
+        const existing = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
+        if (!existing.some((l: { id: string }) => l.id === id)) {
+          const newRecord = {
+            id,
+            title: `Shadowing Practice #${id.slice(0, 6)}`,
+            completedAt: new Date().toISOString(),
+            masteredCount: masteredIndicesRef.current.size,
+            totalLines: transcriptRef.current.length,
+            reason,
+          };
+          localStorage.setItem("completed_shadowing_lessons", JSON.stringify([newRecord, ...existing]));
+        }
+      } catch (e) {
+        console.warn("Completion save error:", e);
+      }
+    },
+    [id]
+  );
+
   /* 1. Fetch Transcript & filter out [Music], [Applause], ♪ */
   useEffect(() => {
     async function fetchTranscript() {
@@ -197,16 +213,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         const res = await fetch(`/api/FetchTranscript?videoId=${id}`);
         const data = await res.json();
         const rawItems = Array.isArray(data) ? data : data?.content || [];
-
-        const soundRegex = /\[(?:music|applause|laughter|cheering|cheers|sigh|cough|groan|screaming|snickering|gasp|chuckle|bell|giggle|whisper|snort|sound|audio|silence|intro music|outro music|background music).*?\]|\([a-z\s]*(?:music|applause|laughter|cheering|sound)[a-z\s]*\)|[♪♫♩♬]+/gi;
-        const bracketOnlyRegex = /^\[.*?\]$/;
-
-        const items: TranscriptItem[] = rawItems
-          .map((item: any) => ({
-            ...item,
-            text: String(item.text || "").replace(soundRegex, "").replace(/\s+/g, " ").trim(),
-          }))
-          .filter((item: TranscriptItem) => item.text.length > 0 && !bracketOnlyRegex.test(item.text));
+        const items: TranscriptItem[] = cleanTranscriptItems(rawItems);
 
         setTranscript(items);
         transcriptRef.current = items;
@@ -295,6 +302,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         }
       }
 
+      // Method 2: Video Playthrough detection near end of lesson
+      try {
+        const dur = typeof player.duration === "function" ? player.duration() : 0;
+        const cur = typeof player.currentTime === "function" ? player.currentTime() : 0;
+        if (typeof dur === "number" && dur > 5 && typeof cur === "number" && cur >= dur - 1.5) {
+          triggerLessonCompletion("playthrough");
+        }
+      } catch {}
+
       // Sync active line
       const newIndex = findActiveTranscriptIndex(items, currentMs);
       setActiveIndex((prev) => (prev !== newIndex ? newIndex : prev));
@@ -302,6 +318,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
     player.on("timeupdate", syncTranscript);
     player.on("seeked", syncTranscript);
+    player.on("ended", () => {
+      // Method 2: On video end, mark lesson complete!
+      triggerLessonCompletion("playthrough");
+    });
     player.on("ratechange", () => {
       const rate = player.playbackRate();
       if (rate) setPlaybackRate(rate);
@@ -313,7 +333,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         playerRef.current = null;
       }
     };
-  }, [id, handleSeek]);
+  }, [id, handleSeek, triggerLessonCompletion]);
 
   /* 3. Handle Auto-Scroll when activeIndex changes */
   useEffect(() => {
@@ -376,6 +396,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           localStorage.setItem(`mastered_lesson_${id}`, JSON.stringify(Array.from(next)));
 
           if (wasAdded) {
+            const newMasteredCount = next.size;
+            const totalLines = transcriptRef.current.length;
+
+            // Method 1: If user reaches >=80% mastery of all lines, complete lesson!
+            if (totalLines > 0 && newMasteredCount / totalLines >= 0.8) {
+              triggerLessonCompletion("mastery");
+            }
+
             setTodayMastered((c) => {
               const updated = c + 1;
               const todayStr = new Date().toISOString().slice(0, 10);
@@ -393,7 +421,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         return next;
       });
     },
-    [id, streak]
+    [id, streak, triggerLessonCompletion]
   );
 
   // Toggle Bookmark Lesson to Playlist
@@ -537,6 +565,26 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Completion Status Badge / Button */}
+            {isLessonCompleted ? (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#26543F]/80 border border-[#367859] text-[#42946E] text-[11px] font-mono font-medium"
+                title="Lesson Completed! (80%+ mastery or full playthrough)"
+              >
+                <CheckCircle2 size={13} />
+                <span>Lesson Done</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => triggerLessonCompletion("manual")}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#42946E] text-[11px] font-mono text-[#A1A0AB] hover:text-[#42946E] transition-all cursor-pointer"
+                title="Mark this lesson as done manually"
+              >
+                <Check size={12} />
+                <span className="hidden sm:inline">Mark Done</span>
+              </button>
+            )}
+
             {/* Leaderboard Button */}
             <button
               onClick={() => setShowLeaderboard(true)}
@@ -960,6 +1008,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           )}
         </div>
       </div>
+
+      {/* Lesson Complete Celebration Modal */}
+      <LessonCompleteModal
+        isOpen={showCompletionModal}
+        onClose={() => setShowCompletionModal(false)}
+        masteredCount={masteredIndices.size}
+        totalLines={transcript.length}
+        reason={completionReason}
+      />
     </div>
   );
 }

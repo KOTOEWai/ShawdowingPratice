@@ -2,11 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Topic from "@/components/Topic";
+import TopicGrid from "./TopicGrid";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import CustomVideoModal from "@/components/CustomVideoModal";
-import { TopicPageProps } from "../Types/Type";
+import { CustomVideoModal } from "@/features/shadowing";
+import { TopicPageProps } from "../types";
 
 const CATEGORIES = [
   { id: "all", label: "All topics" },
@@ -102,7 +102,7 @@ export default function TopicPage({ movieVideos, dailyVideos, business, ielts }:
                     View all →
                   </Link>
                 </div>
-                <Topic videos={section.data} />
+                <TopicGrid videos={section.data} />
               </motion.section>
             ))}
           </AnimatePresence>

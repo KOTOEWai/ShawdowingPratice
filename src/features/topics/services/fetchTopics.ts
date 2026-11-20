@@ -1,4 +1,4 @@
-import { redis } from "./redis";
+import { redis } from "@/lib/redis";
 
 export default async function fetchFromPlaylist(playlistId: string) {
   const cacheKey = `Youtubelist:${playlistId}`;

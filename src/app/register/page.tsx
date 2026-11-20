@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus, Mail, Lock, User, Loader2, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { registerUser } from "@/app/actions/register";
+import { registerUser } from "@/features/auth";
 import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {

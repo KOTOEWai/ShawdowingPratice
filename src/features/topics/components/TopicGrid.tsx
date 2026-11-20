@@ -1,6 +1,6 @@
 "use client";
 
-import { VideoItem } from "@/app/Types/Type";
+import { VideoItem } from "../types";
 import { motion } from "framer-motion";
 import { Play } from "lucide-react";
 import Image from "next/image";

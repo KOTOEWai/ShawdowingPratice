@@ -1,39 +1,11 @@
 import { Supadata } from "@supadata/js";
 import { NextRequest, NextResponse } from "next/server";
-import { redis } from "@/app/lib/redis";
+import { redis } from "@/lib/redis";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { TranscriptItem } from "@/app/Types/Type";
+import { TranscriptItem, cleanTranscriptItems } from "@/features/shadowing";
 
 const supadataApiKey = process.env.SUPADATA_API_KEY;
 const geminiApiKey = process.env.GEMINI_API_KEY;
-
-/**
- * Strips non-speech tags such as [Music], [Applause], [Laughter], [Cheering], ♪,
- * and filters out any lines that contain only sound markers.
- */
-function cleanTranscriptItems(items: TranscriptItem[]): TranscriptItem[] {
-  if (!Array.isArray(items)) return [];
-
-  const soundRegex = /\[(?:music|applause|laughter|cheering|cheers|sigh|cough|groan|screaming|snickering|gasp|chuckle|bell|giggle|whisper|snort|sound|audio|silence|intro music|outro music|background music).*?\]|\([a-z\s]*(?:music|applause|laughter|cheering|sound)[a-z\s]*\)|[♪♫♩♬]+/gi;
-  const bracketOnlyRegex = /^\[.*?\]$/;
-
-  return items
-    .map((item) => {
-      const cleaned = String(item.text || "")
-        .replace(soundRegex, "")
-        .replace(/\s+/g, " ")
-        .trim();
-      return {
-        ...item,
-        text: cleaned,
-      };
-    })
-    .filter((item) => {
-      if (!item.text || item.text.length === 0) return false;
-      if (bracketOnlyRegex.test(item.text)) return false;
-      return true;
-    });
-}
 
 /**
  * Polishes raw YouTube auto-captions using Gemini 2.5 Flash:

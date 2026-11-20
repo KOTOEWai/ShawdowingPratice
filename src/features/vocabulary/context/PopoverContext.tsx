@@ -1,6 +1,6 @@
 "use client";
 
-import { Colors, ExternalLinkProps, PopOverProps } from "@/app/Types/Type";
+import { Colors, ExternalLinkProps, PopOverProps } from "../types";
 
 export default function PopoverContent({
   data,

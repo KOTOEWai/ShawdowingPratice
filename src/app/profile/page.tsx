@@ -18,6 +18,8 @@ import {
   Bell,
   Bookmark,
   Play,
+  CheckCircle2,
+  Trophy,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -28,22 +30,44 @@ interface SavedLesson {
   addedAt: string;
 }
 
+interface CompletedLesson {
+  id: string;
+  title: string;
+  completedAt: string;
+  masteredCount: number;
+  totalLines: number;
+  reason?: "mastery" | "playthrough" | "manual";
+}
+
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const [savedLessons, setSavedLessons] = useState<SavedLesson[]>([]);
-  const [streakCount, setStreakCount] = useState(5);
-  const [masteredCount, setMasteredCount] = useState(12);
+  const [completedLessons, setCompletedLessons] = useState<CompletedLesson[]>([]);
+  const [activeTab, setActiveTab] = useState<"completed" | "saved">("completed");
+  const [streakCount, setStreakCount] = useState(1);
+  const [masteredCount, setMasteredCount] = useState(0);
+  const [studyHours, setStudyHours] = useState("0.5");
 
   useEffect(() => {
     try {
       const list = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
       setSavedLessons(list);
 
+      const completed: CompletedLesson[] = JSON.parse(
+        localStorage.getItem("completed_shadowing_lessons") || "[]"
+      );
+      setCompletedLessons(completed);
+
       const streakData = localStorage.getItem("shadowing_streak_data");
       if (streakData) {
         const parsed = JSON.parse(streakData);
         if (parsed.streak) setStreakCount(parsed.streak);
         if (parsed.todayCount) setMasteredCount(parsed.todayCount);
+      }
+
+      const studySec = parseInt(localStorage.getItem("shadowing_study_seconds") || "0", 10);
+      if (studySec > 0) {
+        setStudyHours((studySec / 3600).toFixed(1));
       }
     } catch (e) {
       console.warn("Storage error:", e);
@@ -63,10 +87,10 @@ export default function ProfilePage() {
   }
 
   const stats = [
-    { label: "Lessons Done", value: String(Math.max(1, savedLessons.length)), icon: <BookOpen size={20} className="text-[#82AAFF]" /> },
+    { label: "Lessons Done", value: String(completedLessons.length), icon: <BookOpen size={20} className="text-[#82AAFF]" /> },
     { label: "Day Streak", value: String(streakCount), icon: <Flame size={20} className="text-orange-400" /> },
     { label: "Mastered Lines", value: String(masteredCount), icon: <Award size={20} className="text-[#A667E4]" /> },
-    { label: "Hours Studied", value: "4.5", icon: <Clock size={20} className="text-[#42946E]" /> },
+    { label: "Hours Studied", value: studyHours, icon: <Clock size={20} className="text-[#42946E]" /> },
   ];
 
   return (
@@ -172,46 +196,128 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            {/* Saved Lessons Section */}
+            {/* Lessons & Playlists Section */}
             <div className="bg-[#1F132A] border border-[#33323E] p-6 sm:p-8 rounded-xl shadow-xl">
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2.5">
-                  <Bookmark size={18} className="text-[#A667E4]" />
-                  <h3 className="hero-headline text-xl sm:text-2xl font-normal text-white">
-                    My Saved Lessons
-                  </h3>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#13111C] border border-[#33323E] text-[#A1A0AB]">
-                    {savedLessons.length}
-                  </span>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-[#33323E]">
+                {/* Tabs */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveTab("completed")}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                      activeTab === "completed"
+                        ? "bg-[#853BCE] text-white shadow-lg shadow-[#853BCE]/25"
+                        : "bg-[#13111C] text-[#A1A0AB] hover:text-white border border-[#33323E]"
+                    }`}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>Completed Lessons</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.2 rounded-full bg-black/25">
+                      {completedLessons.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("saved")}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                      activeTab === "saved"
+                        ? "bg-[#853BCE] text-white shadow-lg shadow-[#853BCE]/25"
+                        : "bg-[#13111C] text-[#A1A0AB] hover:text-white border border-[#33323E]"
+                    }`}
+                  >
+                    <Bookmark size={16} />
+                    <span>Saved Playlist</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.2 rounded-full bg-black/25">
+                      {savedLessons.length}
+                    </span>
+                  </button>
                 </div>
+
                 <Link href="/Topics" className="text-xs font-mono text-[#A667E4] hover:text-white transition-colors">
-                  Browse more ↗
+                  Browse Lessons ↗
                 </Link>
               </div>
 
-              {savedLessons.length === 0 ? (
-                <div className="p-6 rounded-lg bg-[#13111C] border border-dashed border-[#33323E] text-center text-xs text-[#A1A0AB]">
-                  No saved lessons yet. Click the &quot;Save Lesson&quot; bookmark button on any shadowing video to build your study playlist.
+              {/* Tab 1: Completed Lessons */}
+              {activeTab === "completed" && (
+                <div>
+                  {completedLessons.length === 0 ? (
+                    <div className="p-8 rounded-lg bg-[#13111C] border border-dashed border-[#33323E] text-center">
+                      <Trophy size={28} className="mx-auto text-[#6C6B7B] mb-2" />
+                      <p className="text-xs sm:text-sm text-[#DCDCE0] font-medium mb-1">
+                        No completed lessons yet
+                      </p>
+                      <p className="text-xs text-[#A1A0AB] max-w-sm mx-auto mb-4">
+                        Master at least 80% of lines in a lesson or shadow through the full video to earn your completion badge.
+                      </p>
+                      <Link
+                        href="/Topics"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 btn-railway-primary text-xs rounded-lg font-medium"
+                      >
+                        Start a Shadowing Lesson ↗
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {completedLessons.map((lesson) => (
+                        <Link
+                          key={lesson.id}
+                          href={`/lessons/shadowing/${lesson.id}`}
+                          className="flex items-center justify-between p-3.5 rounded-lg bg-[#13111C] border border-[#33323E] hover:border-[#42946E]/50 transition-all group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#26543F]/60 border border-[#367859] flex items-center justify-center text-[#42946E]">
+                              <CheckCircle2 size={16} />
+                            </div>
+                            <div>
+                              <div className="text-xs sm:text-sm font-medium text-white group-hover:text-[#42946E] transition-colors">
+                                {lesson.title}
+                              </div>
+                              <div className="text-[10px] font-mono text-[#6C6B7B]">
+                                {lesson.completedAt
+                                  ? new Date(lesson.completedAt).toLocaleDateString()
+                                  : "Completed"}
+                                {lesson.reason && ` • by ${lesson.reason}`}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono text-[#42946E] group-hover:underline">
+                            Practice ↗
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {savedLessons.map((lesson) => (
-                    <Link
-                      key={lesson.id}
-                      href={`/lessons/shadowing/${lesson.id}`}
-                      className="flex items-center justify-between p-3.5 rounded-lg bg-[#13111C] border border-[#33323E] hover:border-[#853BCE]/50 transition-all group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Play size={14} className="text-[#A667E4] group-hover:translate-x-0.5 transition-transform" />
-                        <span className="text-xs sm:text-sm font-medium text-white group-hover:text-[#A667E4]">
-                          {lesson.title}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono text-[#6C6B7B]">
-                        Practice ↗
-                      </span>
-                    </Link>
-                  ))}
+              )}
+
+              {/* Tab 2: Saved Playlist */}
+              {activeTab === "saved" && (
+                <div>
+                  {savedLessons.length === 0 ? (
+                    <div className="p-8 rounded-lg bg-[#13111C] border border-dashed border-[#33323E] text-center text-xs text-[#A1A0AB]">
+                      No saved lessons yet. Click the &quot;Save Lesson&quot; bookmark button on any shadowing video to build your study playlist.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {savedLessons.map((lesson) => (
+                        <Link
+                          key={lesson.id}
+                          href={`/lessons/shadowing/${lesson.id}`}
+                          className="flex items-center justify-between p-3.5 rounded-lg bg-[#13111C] border border-[#33323E] hover:border-[#853BCE]/50 transition-all group"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Play size={14} className="text-[#A667E4] group-hover:translate-x-0.5 transition-transform" />
+                            <span className="text-xs sm:text-sm font-medium text-white group-hover:text-[#A667E4]">
+                              {lesson.title}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono text-[#6C6B7B]">
+                            Practice ↗
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
