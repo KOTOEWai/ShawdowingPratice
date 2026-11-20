@@ -53,6 +53,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const videoRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<Player | null>(null);
   const activeLineRef = useRef<HTMLDivElement | null>(null);
+  const transcriptListRef = useRef<HTMLDivElement | null>(null);
 
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const transcriptRef = useRef<TranscriptItem[]>([]);
@@ -347,12 +348,21 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     };
   }, [id, handleSeek, triggerLessonCompletion]);
 
-  /* 3. Handle Auto-Scroll when activeIndex changes */
+  /* 3. Handle Auto-Scroll INSIDE transcript container ONLY (Never scroll the main window) */
   useEffect(() => {
-    if (autoScroll && activeIndex !== -1 && activeLineRef.current) {
-      activeLineRef.current.scrollIntoView({
+    if (autoScroll && activeIndex !== -1 && activeLineRef.current && transcriptListRef.current) {
+      const container = transcriptListRef.current;
+      const element = activeLineRef.current;
+
+      const elementTop = element.offsetTop;
+      const containerHeight = container.clientHeight;
+      const elementHeight = element.offsetHeight;
+
+      const targetScroll = elementTop - containerHeight / 2 + elementHeight / 2;
+
+      container.scrollTo({
+        top: Math.max(0, targetScroll),
         behavior: "smooth",
-        block: "center",
       });
     }
     setShowTranslation(false);
@@ -932,7 +942,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         </div>
 
         {/* Transcript List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
+        <div ref={transcriptListRef} className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
           {loading ? (
             <div className="space-y-2 animate-pulse">
               {[1, 2, 3, 4, 5, 6, 7].map((i) => (
