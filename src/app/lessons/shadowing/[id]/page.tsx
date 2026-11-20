@@ -77,6 +77,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   // Advanced Learning Modes: 'normal' | 'echo' | 'blind'
   const [shadowingMode, setShadowingMode] = useState<"normal" | "echo" | "blind">("normal");
   const [echoCountdown, setEchoCountdown] = useState<number | null>(null);
+  const [echoDuration, setEchoDuration] = useState<number>(10); // Default to 10 seconds auto-pause
+  const echoDurationRef = useRef<number>(10);
+  echoDurationRef.current = echoDuration;
+  const echoIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const [peekBlind, setPeekBlind] = useState<boolean>(false);
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
 
@@ -175,6 +180,34 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       }
     }
   }, []);
+
+  // Skip / Continue Echo Countdown early
+  const skipEchoCountdown = useCallback(() => {
+    if (echoIntervalRef.current) {
+      clearInterval(echoIntervalRef.current);
+      echoIntervalRef.current = null;
+    }
+    setEchoCountdown(null);
+    isEchoPausingRef.current = false;
+    const nextIdx = activeIndexRef.current + 1;
+    if (nextIdx < transcriptRef.current.length) {
+      handleSeek(transcriptRef.current[nextIdx].offset, nextIdx);
+    } else if (playerRef.current) {
+      playerRef.current.play();
+    }
+  }, [handleSeek]);
+
+  // Cancel echo countdown if user switches away from echo mode
+  useEffect(() => {
+    if (shadowingMode !== "echo") {
+      if (echoIntervalRef.current) {
+        clearInterval(echoIntervalRef.current);
+        echoIntervalRef.current = null;
+      }
+      setEchoCountdown(null);
+      isEchoPausingRef.current = false;
+    }
+  }, [shadowingMode]);
 
   // Trigger Lesson Completion (Method 1: >=80% Mastery, Method 2: Video Playthrough, or Manual)
   const triggerLessonCompletion = useCallback(
@@ -291,15 +324,19 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           if (currentMs >= endMs) {
             isEchoPausingRef.current = true;
             player.pause();
-            setEchoCountdown(3);
 
-            let count = 3;
-            const interval = setInterval(() => {
+            const pauseSec = echoDurationRef.current || 10;
+            setEchoCountdown(pauseSec);
+
+            if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
+            let count = pauseSec;
+            echoIntervalRef.current = setInterval(() => {
               count -= 1;
               if (count > 0) {
                 setEchoCountdown(count);
               } else {
-                clearInterval(interval);
+                if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
+                echoIntervalRef.current = null;
                 setEchoCountdown(null);
                 isEchoPausingRef.current = false;
                 const nextIdx = activeIndexRef.current + 1;
@@ -670,17 +707,42 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
           {/* Echo Countdown Overlay */}
           {echoCountdown !== null && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-6 animate-in fade-in">
-              <div className="w-16 h-16 rounded-full bg-[#853BCE]/30 border border-[#853BCE] flex items-center justify-center text-3xl font-extrabold text-white mb-3 shadow-lg shadow-[#853BCE]/30 animate-pulse">
-                {echoCountdown}
+            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-6 animate-in fade-in">
+              <div className="w-16 h-16 rounded-2xl bg-[#853BCE]/30 border-2 border-[#853BCE] flex items-center justify-center text-3xl font-extrabold text-white mb-3 shadow-xl shadow-[#853BCE]/40 animate-pulse font-mono">
+                {echoCountdown}s
               </div>
               <h3 className="text-lg font-semibold text-white tracking-tight flex items-center gap-2">
                 <Mic size={18} className="text-[#A667E4]" />
                 Echo Repeat Out Loud!
               </h3>
-              <p className="text-xs text-[#A1A0AB] mt-1 max-w-sm">
-                Say this sentence with natural rhythm before the next line begins.
+              <p className="text-xs text-[#A1A0AB] mt-1 max-w-sm mb-4">
+                Repeat this sentence out loud with natural rhythm and intonation.
               </p>
+
+              {/* Action buttons during countdown */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={skipEchoCountdown}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#853BCE] hover:bg-[#9745e6] text-white text-xs font-mono font-medium transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                  title="Finish speaking and continue immediately"
+                >
+                  <SkipForward size={13} />
+                  <span>Continue Now</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
+                    isEchoPausingRef.current = false;
+                    setEchoCountdown(null);
+                    handleReplayCurrent();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#DCDCE0] hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Replay this sentence"
+                >
+                  <RotateCcw size={13} />
+                  <span>Replay</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -691,26 +753,55 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             Shadowing Mode:
           </span>
 
-          <div className="flex items-center gap-1.5">
-            {[
-              { id: "normal", label: "Normal", icon: <Headphones size={12} />, title: "Standard continuous video practice" },
-              { id: "echo", label: "Echo (Auto-Pause)", icon: <Mic size={12} />, title: "Auto-pauses 3 seconds after each sentence for repeating" },
-              { id: "blind", label: "Blind (Ear Training)", icon: <EyeOff size={12} />, title: "Blurs subtitles to train your listening comprehension first" },
-            ].map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setShadowingMode(m.id as "normal" | "echo" | "blind")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                  shadowingMode === m.id
-                    ? "bg-[#853BCE] text-white shadow-md shadow-[#853BCE]/25"
-                    : "bg-[#13111C] border border-[#33323E] text-[#A1A0AB] hover:text-white"
-                }`}
-                title={m.title}
-              >
-                {m.icon}
-                <span>{m.label}</span>
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              {[
+                { id: "normal", label: "Normal", icon: <Headphones size={12} />, title: "Standard continuous video practice" },
+                { id: "echo", label: "Echo (Auto-Pause)", icon: <Mic size={12} />, title: `Auto-pauses ${echoDuration}s after each sentence for repeating out loud` },
+                { id: "blind", label: "Blind (Ear Training)", icon: <EyeOff size={12} />, title: "Blurs subtitles to train your listening comprehension first" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setShadowingMode(m.id as "normal" | "echo" | "blind")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                    shadowingMode === m.id
+                      ? "bg-[#853BCE] text-white shadow-md shadow-[#853BCE]/25"
+                      : "bg-[#13111C] border border-[#33323E] text-[#A1A0AB] hover:text-white"
+                  }`}
+                  title={m.title}
+                >
+                  {m.icon}
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Echo Pause Duration Selector (5s, 10s, 15s) */}
+            {shadowingMode === "echo" && (
+              <div className="flex items-center gap-1 text-[11px] font-mono text-[#A1A0AB] bg-[#13111C] px-2 py-1 rounded-lg border border-[#33323E]">
+                <span className="text-[10px] text-[#6C6B7B]">Pause:</span>
+                {[5, 10, 15].map((sec) => (
+                  <button
+                    key={sec}
+                    onClick={() => {
+                      setEchoDuration(sec);
+                      echoDurationRef.current = sec;
+                      try {
+                        localStorage.setItem("shadowing_echo_duration", String(sec));
+                      } catch {}
+                    }}
+                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                      echoDuration === sec
+                        ? "bg-[#853BCE] text-white font-bold shadow"
+                        : "hover:text-white"
+                    }`}
+                    title={`Set pause duration to ${sec} seconds`}
+                  >
+                    {sec}s
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
