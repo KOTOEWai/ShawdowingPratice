@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import Image from "next/image";
@@ -16,12 +16,39 @@ import {
   Shield,
   CreditCard,
   Bell,
+  Bookmark,
+  Play,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
+interface SavedLesson {
+  id: string;
+  title: string;
+  addedAt: string;
+}
+
 export default function ProfilePage() {
   const { data: session, status } = useSession();
+  const [savedLessons, setSavedLessons] = useState<SavedLesson[]>([]);
+  const [streakCount, setStreakCount] = useState(5);
+  const [masteredCount, setMasteredCount] = useState(12);
+
+  useEffect(() => {
+    try {
+      const list = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
+      setSavedLessons(list);
+
+      const streakData = localStorage.getItem("shadowing_streak_data");
+      if (streakData) {
+        const parsed = JSON.parse(streakData);
+        if (parsed.streak) setStreakCount(parsed.streak);
+        if (parsed.todayCount) setMasteredCount(parsed.todayCount);
+      }
+    } catch (e) {
+      console.warn("Storage error:", e);
+    }
+  }, []);
 
   if (status === "loading") {
     return (
@@ -36,9 +63,9 @@ export default function ProfilePage() {
   }
 
   const stats = [
-    { label: "Lessons Done", value: "12", icon: <BookOpen size={20} className="text-[#82AAFF]" /> },
-    { label: "Day Streak", value: "5", icon: <Flame size={20} className="text-orange-400" /> },
-    { label: "Achievements", value: "8", icon: <Award size={20} className="text-[#A667E4]" /> },
+    { label: "Lessons Done", value: String(Math.max(1, savedLessons.length)), icon: <BookOpen size={20} className="text-[#82AAFF]" /> },
+    { label: "Day Streak", value: String(streakCount), icon: <Flame size={20} className="text-orange-400" /> },
+    { label: "Mastered Lines", value: String(masteredCount), icon: <Award size={20} className="text-[#A667E4]" /> },
     { label: "Hours Studied", value: "4.5", icon: <Clock size={20} className="text-[#42946E]" /> },
   ];
 
@@ -82,7 +109,7 @@ export default function ProfilePage() {
               <p className="text-[#A1A0AB] text-xs font-mono mb-6">{session.user?.email}</p>
 
               <div className="flex flex-col gap-2.5">
-                <button className="w-full py-2.5 btn-railway-primary text-xs sm:text-sm font-medium rounded-lg">
+                <button className="w-full py-2.5 btn-railway-primary text-xs sm:text-sm font-medium rounded-lg cursor-pointer">
                   Edit Profile
                 </button>
                 <Link
@@ -108,7 +135,7 @@ export default function ProfilePage() {
                 ].map((item, i) => (
                   <button
                     key={i}
-                    className="w-full flex items-center justify-between p-3 hover:bg-[#13111C] rounded-lg transition-all group text-left"
+                    className="w-full flex items-center justify-between p-3 hover:bg-[#13111C] rounded-lg transition-all group text-left cursor-pointer"
                   >
                     <div className="flex items-center gap-3 text-[#DCDCE0] group-hover:text-white">
                       <span className="text-[#A1A0AB] group-hover:text-[#A667E4]">{item.icon}</span>
@@ -143,6 +170,50 @@ export default function ProfilePage() {
                   <div className="text-[11px] font-medium text-[#A1A0AB]">{stat.label}</div>
                 </div>
               ))}
+            </div>
+
+            {/* Saved Lessons Section */}
+            <div className="bg-[#1F132A] border border-[#33323E] p-6 sm:p-8 rounded-xl shadow-xl">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <Bookmark size={18} className="text-[#A667E4]" />
+                  <h3 className="hero-headline text-xl sm:text-2xl font-normal text-white">
+                    My Saved Lessons
+                  </h3>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#13111C] border border-[#33323E] text-[#A1A0AB]">
+                    {savedLessons.length}
+                  </span>
+                </div>
+                <Link href="/Topics" className="text-xs font-mono text-[#A667E4] hover:text-white transition-colors">
+                  Browse more ↗
+                </Link>
+              </div>
+
+              {savedLessons.length === 0 ? (
+                <div className="p-6 rounded-lg bg-[#13111C] border border-dashed border-[#33323E] text-center text-xs text-[#A1A0AB]">
+                  No saved lessons yet. Click the &quot;Save Lesson&quot; bookmark button on any shadowing video to build your study playlist.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {savedLessons.map((lesson) => (
+                    <Link
+                      key={lesson.id}
+                      href={`/lessons/shadowing/${lesson.id}`}
+                      className="flex items-center justify-between p-3.5 rounded-lg bg-[#13111C] border border-[#33323E] hover:border-[#853BCE]/50 transition-all group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Play size={14} className="text-[#A667E4] group-hover:translate-x-0.5 transition-transform" />
+                        <span className="text-xs sm:text-sm font-medium text-white group-hover:text-[#A667E4]">
+                          {lesson.title}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#6C6B7B]">
+                        Practice ↗
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Activity Chart */}
@@ -184,7 +255,7 @@ export default function ProfilePage() {
                 <h3 className="hero-headline text-xl sm:text-2xl font-normal text-white">
                   Recent Achievements
                 </h3>
-                <button className="text-[#A667E4] text-xs font-medium flex items-center gap-1 hover:text-white transition-colors">
+                <button className="text-[#A667E4] text-xs font-medium flex items-center gap-1 hover:text-white transition-colors cursor-pointer">
                   View all <ChevronRight size={14} />
                 </button>
               </div>
@@ -192,7 +263,7 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { title: "Fast Learner", desc: "Complete 5 lessons in a day", color: "purple" },
-                  { title: "Voice Master", desc: "Get 90%+ accuracy in 10 shadows", color: "amber" },
+                  { title: "Streak Master", desc: "Maintain a 5+ day practice streak", color: "amber" },
                 ].map((ach, i) => (
                   <div
                     key={i}

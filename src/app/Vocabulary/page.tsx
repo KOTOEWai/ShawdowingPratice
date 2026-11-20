@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { Download, FileSpreadsheet, Layers, Trash2 } from "lucide-react";
 
 interface SavedWord {
   word: string;
@@ -12,6 +13,7 @@ interface SavedWord {
 
 export default function VocabularyPage() {
   const [vocabList, setVocabList] = useState<SavedWord[]>([]);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const clearAllVocabulary = () => {
     const confirmed = window.confirm("Are you sure you want to delete ALL saved words? This action cannot be undone.");
@@ -42,6 +44,44 @@ export default function VocabularyPage() {
     audio.play().catch(() => alert("Audio not available"));
   };
 
+  const exportToCSV = () => {
+    if (vocabList.length === 0) return;
+    const header = ["Word", "Phonetic", "Definition", "Date Added"];
+    const rows = vocabList.map((item) => [
+      `"${item.word.replace(/"/g, '""')}"`,
+      `"${(item.phonetic || "").replace(/"/g, '""')}"`,
+      `"${(item.definition || "").replace(/"/g, '""')}"`,
+      `"${item.addedAt}"`,
+    ]);
+    const csvContent = [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `shadowing_vocabulary_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setShowExportMenu(false);
+  };
+
+  const exportToAnki = () => {
+    if (vocabList.length === 0) return;
+    const rows = vocabList.map(
+      (item) => `${item.word} ${item.phonetic || ""}\t${item.definition || ""}`
+    );
+    const ankiContent = rows.join("\n");
+    const blob = new Blob([ankiContent], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `shadowing_anki_deck_${new Date().toISOString().slice(0, 10)}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setShowExportMenu(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#13111C] text-[#DCDCE0] p-4 sm:p-6 md:p-12">
       <div className="max-w-4xl mx-auto">
@@ -59,12 +99,46 @@ export default function VocabularyPage() {
 
           {/* Right Side: Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Export Dropdown */}
+            {vocabList.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu((v) => !v)}
+                  className="px-3.5 py-2 text-xs font-medium text-white bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download size={13} className="text-[#A667E4]" />
+                  <span>Export</span>
+                </button>
+
+                {showExportMenu && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl bg-[#181622] border border-[#33323E] shadow-2xl p-1.5 z-20 space-y-1">
+                    <button
+                      onClick={exportToCSV}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-[#853BCE]/20 hover:text-white text-[#DCDCE0] flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <FileSpreadsheet size={13} className="text-[#42946E]" />
+                      <span>Export as CSV</span>
+                    </button>
+                    <button
+                      onClick={exportToAnki}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-[#853BCE]/20 hover:text-white text-[#DCDCE0] flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Layers size={13} className="text-[#82AAFF]" />
+                      <span>Export for Anki (.txt)</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {vocabList.length > 0 && (
               <button
                 onClick={clearAllVocabulary}
-                className="px-3.5 py-2 text-xs font-medium text-rose-400 border border-rose-500/20 hover:bg-rose-900/20 rounded-lg transition-all"
+                className="px-3 py-2 text-xs font-medium text-rose-400 border border-rose-500/20 hover:bg-rose-900/20 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                title="Delete all saved words"
               >
-                Clear All
+                <Trash2 size={13} />
+                <span>Clear</span>
               </button>
             )}
 
@@ -72,14 +146,14 @@ export default function VocabularyPage() {
               href="/Topics"
               className="btn-railway-secondary px-4 py-2 text-xs sm:text-sm rounded-lg"
             >
-              Back to Practice
+              Practice
             </Link>
 
             <Link
               href="/Vocabulary/Flashcards"
               className="btn-railway-primary px-4 py-2 text-xs sm:text-sm rounded-lg"
             >
-              Practice Flashcards
+              Flashcards
             </Link>
           </div>
         </div>
@@ -139,7 +213,7 @@ export default function VocabularyPage() {
                   </a>
                   <button
                     onClick={() => removeWord(item.word)}
-                    className="px-3 py-1.5 text-xs bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/30 rounded-md transition-colors"
+                    className="px-3 py-1.5 text-xs bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/30 rounded-md transition-colors cursor-pointer"
                   >
                     Delete
                   </button>

@@ -4,6 +4,7 @@ import { TranscriptItem } from "@/app/Types/Type";
 import WordWithMeaning from "@/components/WordWithMeaning";
 import AudioComparison from "@/components/AudioComparison";
 import ShortcutsModal from "@/components/ShortcutsModal";
+import LeaderboardModal from "@/components/LeaderboardModal";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import videojs from "video.js";
@@ -27,6 +28,12 @@ import {
   Check,
   PartyPopper,
   Loader2,
+  Bookmark,
+  Trophy,
+  Eye,
+  EyeOff,
+  Headphones,
+  Mic,
 } from "lucide-react";
 
 /**
@@ -92,6 +99,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [isLooping, setIsLooping] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
+  const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
+
+  // Advanced Learning Modes: 'normal' | 'echo' | 'blind'
+  const [shadowingMode, setShadowingMode] = useState<"normal" | "echo" | "blind">("normal");
+  const [echoCountdown, setEchoCountdown] = useState<number | null>(null);
+  const [peekBlind, setPeekBlind] = useState<boolean>(false);
+  const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
 
   // Translation State
   const [sentenceTranslation, setSentenceTranslation] = useState<string | null>(null);
@@ -111,12 +125,17 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const activeIndexRef = useRef(-1);
   activeIndexRef.current = activeIndex;
 
+  const shadowingModeRef = useRef<"normal" | "echo" | "blind">("normal");
+  shadowingModeRef.current = shadowingMode;
+
+  const isEchoPausingRef = useRef(false);
+
   // Sync transcriptRef
   useEffect(() => {
     transcriptRef.current = transcript;
   }, [transcript]);
 
-  // Load Mastered sentences from localStorage
+  // Load Saved Lessons & Mastered sentences from localStorage
   useEffect(() => {
     if (!id) return;
     try {
@@ -128,6 +147,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         }
       }
 
+      // Check bookmark
+      const savedLessons = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
+      setIsBookmarked(savedLessons.some((l: { id: string }) => l.id === id));
+
       // Load streak info
       const streakSaved = localStorage.getItem("shadowing_streak_data");
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -137,7 +160,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           setStreak(parsed.streak || 1);
           setTodayMastered(parsed.todayCount || 0);
         } else {
-          // Check if yesterday was active
           const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
           if (parsed.lastDate === yesterday) {
             setStreak((parsed.streak || 1) + 1);
@@ -152,7 +174,22 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     }
   }, [id]);
 
-  /* 1. Fetch Transcript */
+  /**
+   * Seek with pre-roll buffer (150ms lead-in) so speech starts naturally.
+   */
+  const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
+    if (playerRef.current) {
+      const targetSec = Math.max(0, (offset - 150) / 1000);
+      playerRef.current.currentTime(targetSec);
+      playerRef.current.play();
+
+      if (typeof explicitIndex === "number") {
+        setActiveIndex(explicitIndex);
+      }
+    }
+  }, []);
+
+  /* 1. Fetch Transcript & filter out [Music], [Applause], ♪ */
   useEffect(() => {
     async function fetchTranscript() {
       try {
@@ -160,8 +197,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         const res = await fetch(`/api/FetchTranscript?videoId=${id}`);
         const data = await res.json();
         const rawItems = Array.isArray(data) ? data : data?.content || [];
-        
-        // Strip out non-speech sound tags like [Music], [Applause], ♪
+
         const soundRegex = /\[(?:music|applause|laughter|cheering|cheers|sigh|cough|groan|screaming|snickering|gasp|chuckle|bell|giggle|whisper|snort|sound|audio|silence|intro music|outro music|background music).*?\]|\([a-z\s]*(?:music|applause|laughter|cheering|sound)[a-z\s]*\)|[♪♫♩♬]+/gi;
         const bracketOnlyRegex = /^\[.*?\]$/;
 
@@ -221,6 +257,44 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         }
       }
 
+      // Handle Echo Shadowing Auto-Pause
+      if (
+        shadowingModeRef.current === "echo" &&
+        !isEchoPausingRef.current &&
+        activeIndexRef.current !== -1
+      ) {
+        const currentItem = items[activeIndexRef.current];
+        if (currentItem) {
+          const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
+          const endMs = currentItem.offset + duration + 150;
+
+          if (currentMs >= endMs) {
+            isEchoPausingRef.current = true;
+            player.pause();
+            setEchoCountdown(3);
+
+            let count = 3;
+            const interval = setInterval(() => {
+              count -= 1;
+              if (count > 0) {
+                setEchoCountdown(count);
+              } else {
+                clearInterval(interval);
+                setEchoCountdown(null);
+                isEchoPausingRef.current = false;
+                const nextIdx = activeIndexRef.current + 1;
+                if (nextIdx < transcriptRef.current.length) {
+                  handleSeek(transcriptRef.current[nextIdx].offset, nextIdx);
+                } else {
+                  player.play();
+                }
+              }
+            }, 1000);
+            return;
+          }
+        }
+      }
+
       // Sync active line
       const newIndex = findActiveTranscriptIndex(items, currentMs);
       setActiveIndex((prev) => (prev !== newIndex ? newIndex : prev));
@@ -239,7 +313,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         playerRef.current = null;
       }
     };
-  }, [id]);
+  }, [id, handleSeek]);
 
   /* 3. Handle Auto-Scroll when activeIndex changes */
   useEffect(() => {
@@ -249,25 +323,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         block: "center",
       });
     }
-    // Reset translation visibility on line change
     setShowTranslation(false);
     setSentenceTranslation(null);
   }, [activeIndex, autoScroll]);
-
-  /**
-   * Seek with pre-roll buffer (150ms lead-in) so speech starts naturally.
-   */
-  const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
-    if (playerRef.current) {
-      const targetSec = Math.max(0, (offset - 150) / 1000);
-      playerRef.current.currentTime(targetSec);
-      playerRef.current.play();
-
-      if (typeof explicitIndex === "number") {
-        setActiveIndex(explicitIndex);
-      }
-    }
-  }, []);
 
   const handlePrevLine = useCallback(() => {
     if (transcript.length === 0) return;
@@ -338,6 +396,31 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     [id, streak]
   );
 
+  // Toggle Bookmark Lesson to Playlist
+  const toggleBookmark = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
+      let updated;
+      if (isBookmarked) {
+        updated = saved.filter((l: { id: string }) => l.id !== id);
+        setIsBookmarked(false);
+      } else {
+        updated = [
+          ...saved,
+          {
+            id,
+            title: `Shadowing Practice #${id.slice(0, 6)}`,
+            addedAt: new Date().toISOString(),
+          },
+        ];
+        setIsBookmarked(true);
+      }
+      localStorage.setItem("saved_study_lessons", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Bookmark error:", e);
+    }
+  };
+
   // Fetch contextual translation
   const handleTranslateToggle = async () => {
     if (showTranslation) {
@@ -370,7 +453,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   /* 4. Power-User Keyboard Shortcuts */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
       const tag = (document.activeElement?.tagName || "").toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
@@ -426,15 +508,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       {/* Keyboard Shortcuts Modal */}
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
+      {/* Community Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        userStreak={streak}
+        userMasteredCount={masteredIndices.size}
+      />
+
       {/* Left Column: Video + Controls + Focus Card + Audio Comparison */}
       <div className="lg:col-span-2 space-y-4">
         {/* Top Activity & Gamification Bar */}
-        <div className="flex items-center justify-between bg-[#1F132A] border border-[#33323E] rounded-xl px-4 py-2.5 shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#33323E] rounded-xl px-4 py-2.5 shadow-md">
           <div className="flex items-center gap-4 text-xs font-mono">
             {/* Streak */}
             <div className="flex items-center gap-1.5 text-amber-400 font-semibold" title="Consecutive Daily Practice Streak">
               <Flame size={15} className="fill-amber-400" />
-              <span>{streak} Day Streak</span>
+              <span>{streak}d Streak</span>
             </div>
 
             <div className="h-3.5 w-px bg-[#33323E]" />
@@ -446,21 +536,91 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
 
-          {/* Shortcuts Info Button */}
-          <button
-            onClick={() => setShowShortcuts(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#181622] border border-[#33323E] text-[11px] font-mono text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 transition-all"
-            title="Open Keyboard Shortcuts Menu (?)"
-          >
-            <Keyboard size={12} />
-            <span className="hidden sm:inline">Shortcuts</span>
-            <kbd className="text-[10px] bg-[#13111C] px-1 rounded text-[#A667E4]">?</kbd>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Leaderboard Button */}
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#181622] border border-[#33323E] text-[11px] font-mono text-[#DCDCE0] hover:text-white hover:border-[#853BCE]/50 transition-all cursor-pointer"
+              title="View Leaderboard"
+            >
+              <Trophy size={13} className="text-amber-400" />
+              <span className="hidden sm:inline">Leaderboard</span>
+            </button>
+
+            {/* Bookmark Lesson Button */}
+            <button
+              onClick={toggleBookmark}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-mono transition-all cursor-pointer ${
+                isBookmarked
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                  : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white"
+              }`}
+              title="Save this lesson to your study playlist"
+            >
+              <Bookmark size={13} className={isBookmarked ? "fill-amber-400" : ""} />
+              <span>{isBookmarked ? "Saved" : "Save Lesson"}</span>
+            </button>
+
+            {/* Shortcuts Info Button */}
+            <button
+              onClick={() => setShowShortcuts(true)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#181622] border border-[#33323E] text-[11px] font-mono text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 transition-all cursor-pointer"
+              title="Keyboard Shortcuts (?)"
+            >
+              <Keyboard size={12} />
+              <kbd className="text-[10px] bg-[#13111C] px-1 rounded text-[#A667E4]">?</kbd>
+            </button>
+          </div>
         </div>
 
         {/* Video Player */}
-        <div className="aspect-video rounded-xl overflow-hidden border border-[#33323E] bg-black shadow-2xl">
+        <div className="relative aspect-video rounded-xl overflow-hidden border border-[#33323E] bg-black shadow-2xl">
           <div ref={videoRef} data-vjs-player />
+
+          {/* Echo Countdown Overlay */}
+          {echoCountdown !== null && (
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-6 animate-in fade-in">
+              <div className="w-16 h-16 rounded-full bg-[#853BCE]/30 border border-[#853BCE] flex items-center justify-center text-3xl font-extrabold text-white mb-3 shadow-lg shadow-[#853BCE]/30 animate-pulse">
+                {echoCountdown}
+              </div>
+              <h3 className="text-lg font-semibold text-white tracking-tight flex items-center gap-2">
+                <Mic size={18} className="text-[#A667E4]" />
+                Echo Repeat Out Loud!
+              </h3>
+              <p className="text-xs text-[#A1A0AB] mt-1 max-w-sm">
+                Say this sentence with natural rhythm before the next line begins.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Shadowing Methodology Mode Bar */}
+        <div className="bg-[#181622] border border-[#33323E] rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-[#A1A0AB] font-semibold pl-1">
+            Shadowing Mode:
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            {[
+              { id: "normal", label: "Normal", icon: <Headphones size={12} />, title: "Standard continuous video practice" },
+              { id: "echo", label: "Echo (Auto-Pause)", icon: <Mic size={12} />, title: "Auto-pauses 3 seconds after each sentence for repeating" },
+              { id: "blind", label: "Blind (Ear Training)", icon: <EyeOff size={12} />, title: "Blurs subtitles to train your listening comprehension first" },
+            ].map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setShadowingMode(m.id as "normal" | "echo" | "blind")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  shadowingMode === m.id
+                    ? "bg-[#853BCE] text-white shadow-md shadow-[#853BCE]/25"
+                    : "bg-[#13111C] border border-[#33323E] text-[#A1A0AB] hover:text-white"
+                }`}
+                title={m.title}
+              >
+                {m.icon}
+                <span>{m.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Shadowing Interactive Control Bar */}
@@ -470,7 +630,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             <button
               onClick={handlePrevLine}
               disabled={activeIndex <= 0}
-              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium"
+              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
               title="Previous Line (←)"
             >
               <SkipBack size={14} />
@@ -480,7 +640,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             <button
               onClick={handleReplayCurrent}
               disabled={activeIndex === -1}
-              className="p-2 sm:px-3.5 sm:py-2 rounded-lg bg-[#853BCE]/20 border border-[#853BCE]/40 text-white hover:bg-[#853BCE] hover:border-[#853BCE] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium shadow-md shadow-[#853BCE]/15"
+              className="p-2 sm:px-3.5 sm:py-2 rounded-lg bg-[#853BCE]/20 border border-[#853BCE]/40 text-white hover:bg-[#853BCE] hover:border-[#853BCE] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium shadow-md shadow-[#853BCE]/15 cursor-pointer"
               title="Replay Current Line (R)"
             >
               <RotateCcw size={14} />
@@ -490,7 +650,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             <button
               onClick={handleNextLine}
               disabled={activeIndex >= transcript.length - 1}
-              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium"
+              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
               title="Next Line (→)"
             >
               <span className="hidden sm:inline">Next</span>
@@ -502,7 +662,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             {/* Loop Toggle */}
             <button
               onClick={() => setIsLooping((v) => !v)}
-              className={`px-3 py-2 rounded-lg border text-xs font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-2 rounded-lg border text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                 isLooping
                   ? "bg-[#853BCE] border-[#A667E4] text-white shadow-md shadow-[#853BCE]/30"
                   : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/40"
@@ -521,7 +681,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               <button
                 key={speed}
                 onClick={() => handleSpeedPreset(speed)}
-                className={`px-2 py-1 rounded text-[11px] font-mono transition-all ${
+                className={`px-2 py-1 rounded text-[11px] font-mono transition-all cursor-pointer ${
                   playbackRate === speed
                     ? "bg-[#853BCE] text-white font-semibold"
                     : "text-[#A1A0AB] hover:text-white"
@@ -555,11 +715,22 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Blind Mode Peek Button */}
+                  {shadowingMode === "blind" && (
+                    <button
+                      onClick={() => setPeekBlind((v) => !v)}
+                      className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#DCDCE0] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      {peekBlind ? <EyeOff size={12} /> : <Eye size={12} />}
+                      <span>{peekBlind ? "Hide" : "Peek"}</span>
+                    </button>
+                  )}
+
                   {/* Translate Button */}
                   <button
                     onClick={handleTranslateToggle}
                     disabled={translating}
-                    className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#A1A0AB] hover:text-white transition-all flex items-center gap-1"
+                    className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#A1A0AB] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
                     title="Translate this sentence"
                   >
                     {translating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={12} />}
@@ -569,7 +740,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   {/* Mark as Mastered button */}
                   <button
                     onClick={() => toggleMastered(activeIndex)}
-                    className={`px-2.5 py-1 rounded border text-[11px] font-mono transition-all flex items-center gap-1 ${
+                    className={`px-2.5 py-1 rounded border text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer ${
                       masteredIndices.has(activeIndex)
                         ? "bg-[#26543F] text-[#42946E] border-[#367859] font-semibold"
                         : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white"
@@ -582,12 +753,20 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </div>
               </div>
 
-              {/* Large Typography Sentence */}
-              <p className="text-base sm:text-xl text-white leading-relaxed font-normal select-text">
-                {transcript[activeIndex].text.split(" ").map((word, wIdx) => (
-                  <WordWithMeaning key={wIdx} word={word} />
-                ))}
-              </p>
+              {/* Large Typography Sentence (with Blind Mode blur support) */}
+              <div
+                className={`transition-all duration-300 ${
+                  shadowingMode === "blind" && !peekBlind
+                    ? "filter blur-md select-none opacity-40 hover:filter-none hover:opacity-100"
+                    : ""
+                }`}
+              >
+                <p className="text-base sm:text-xl text-white leading-relaxed font-normal select-text">
+                  {transcript[activeIndex].text.split(" ").map((word, wIdx) => (
+                    <WordWithMeaning key={wIdx} word={word} />
+                  ))}
+                </p>
+              </div>
 
               {/* Contextual Translation Drawer */}
               {showTranslation && sentenceTranslation && (
@@ -603,7 +782,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </motion.div>
               )}
 
-              {/* Local A/B Voice Comparison Widget */}
+              {/* Local A/B Voice Comparison Widget with Waveform */}
               <AudioComparison
                 sentenceText={transcript[activeIndex].text}
                 onPlayNative={() => handleSeek(transcript[activeIndex].offset, activeIndex)}
@@ -616,7 +795,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       </div>
 
       {/* Right Column: Interactive Synced Transcript & Progress */}
-      <div className="bg-[#1F132A] rounded-xl border border-[#33323E] flex flex-col h-130 lg:h-[700px] shadow-2xl overflow-hidden">
+      <div className="bg-[#1F132A] rounded-xl border border-[#33323E] flex flex-col h-130 lg:h-[720px] shadow-2xl overflow-hidden">
         {/* Transcript Header with Auto-scroll Toggle */}
         <div className="p-3.5 border-b border-[#33323E] bg-[#181622]/95 sticky top-0 rounded-t-xl backdrop-blur-md z-10 space-y-2.5">
           <div className="flex items-center justify-between">
@@ -629,7 +808,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
             <button
               onClick={() => setAutoScroll((v) => !v)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-mono border transition-all flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
                 autoScroll
                   ? "bg-[#853BCE]/20 border-[#853BCE]/50 text-[#A667E4]"
                   : "bg-[#13111C] border-[#33323E] text-[#6C6B7B] hover:text-[#A1A0AB]"
@@ -733,7 +912,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                           e.stopPropagation();
                           toggleMastered(index);
                         }}
-                        className={`p-1 rounded transition-colors ${
+                        className={`p-1 rounded transition-colors cursor-pointer ${
                           isMastered
                             ? "text-[#42946E]"
                             : "text-[#6C6B7B] hover:text-white opacity-40 group-hover:opacity-100"
@@ -749,7 +928,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                           e.stopPropagation();
                           handleSeek(item.offset, index);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#853BCE]/20 text-[#A667E4] transition-opacity text-xs"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#853BCE]/20 text-[#A667E4] transition-opacity text-xs cursor-pointer"
                         title="Play this line"
                       >
                         <RotateCcw size={12} />
@@ -757,16 +936,24 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     </div>
                   </div>
 
-                  {/* Line Text with Dictionary Word Lookup */}
-                  <p
-                    className={`text-sm sm:text-[15px] leading-relaxed select-text ${
-                      isActive ? "text-white font-medium" : "text-[#DCDCE0]"
-                    } ${isMastered ? "opacity-90" : ""}`}
+                  {/* Line Text with Dictionary Word Lookup (Blind Mode blur support) */}
+                  <div
+                    className={
+                      shadowingMode === "blind" && !peekBlind
+                        ? "filter blur-sm select-none opacity-40 group-hover:filter-none group-hover:opacity-100 transition-all"
+                        : "transition-all"
+                    }
                   >
-                    {item.text.split(" ").map((word, wIdx) => (
-                      <WordWithMeaning key={wIdx} word={word} />
-                    ))}
-                  </p>
+                    <p
+                      className={`text-sm sm:text-[15px] leading-relaxed select-text ${
+                        isActive ? "text-white font-medium" : "text-[#DCDCE0]"
+                      } ${isMastered ? "opacity-90" : ""}`}
+                    >
+                      {item.text.split(" ").map((word, wIdx) => (
+                        <WordWithMeaning key={wIdx} word={word} />
+                      ))}
+                    </p>
+                  </div>
                 </div>
               );
             })
