@@ -8,11 +8,40 @@ const supadataApiKey = process.env.SUPADATA_API_KEY;
 const geminiApiKey = process.env.GEMINI_API_KEY;
 
 /**
+ * Strips non-speech tags such as [Music], [Applause], [Laughter], [Cheering], ♪,
+ * and filters out any lines that contain only sound markers.
+ */
+function cleanTranscriptItems(items: TranscriptItem[]): TranscriptItem[] {
+  if (!Array.isArray(items)) return [];
+
+  const soundRegex = /\[(?:music|applause|laughter|cheering|cheers|sigh|cough|groan|screaming|snickering|gasp|chuckle|bell|giggle|whisper|snort|sound|audio|silence|intro music|outro music|background music).*?\]|\([a-z\s]*(?:music|applause|laughter|cheering|sound)[a-z\s]*\)|[♪♫♩♬]+/gi;
+  const bracketOnlyRegex = /^\[.*?\]$/;
+
+  return items
+    .map((item) => {
+      const cleaned = String(item.text || "")
+        .replace(soundRegex, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      return {
+        ...item,
+        text: cleaned,
+      };
+    })
+    .filter((item) => {
+      if (!item.text || item.text.length === 0) return false;
+      if (bracketOnlyRegex.test(item.text)) return false;
+      return true;
+    });
+}
+
+/**
  * Polishes raw YouTube auto-captions using Gemini 2.5 Flash:
- * 1. Adds punctuation (periods, commas, question marks).
- * 2. Fixes capitalization (sentence beginnings, proper nouns, "I").
- * 3. Corrects speech-to-text typos while maintaining exact timing & line counts.
- * 4. Falls back to raw transcript gracefully if anything fails.
+ * 1. Strips sound effect markers [Music], [Applause], ♪.
+ * 2. Adds punctuation (periods, commas, question marks).
+ * 3. Fixes capitalization (sentence beginnings, proper nouns, "I").
+ * 4. Corrects speech-to-text typos while maintaining exact timing & line counts.
+ * 5. Falls back to raw transcript gracefully if anything fails.
  */
 async function polishTranscriptWithGemini(items: TranscriptItem[]): Promise<TranscriptItem[]> {
   if (!geminiApiKey || items.length === 0) return items;
@@ -35,9 +64,10 @@ async function polishTranscriptWithGemini(items: TranscriptItem[]): Promise<Tran
 
       const prompt = `You are an English linguistic editor for a shadowing language learning app.
 Refine these speech transcription lines by:
-1. Adding proper punctuation (periods, commas, apostrophes, question marks, exclamation marks).
-2. Adding proper sentence capitalization (sentence beginnings, proper nouns, "I").
-3. Correcting obvious speech-to-text typos while keeping the spoken phrasing natural.
+1. Stripping out any sound effect markers, background noise descriptions, or musical tags like [Music], [Applause], [Laughter], [Cheering], ♪.
+2. Adding proper punctuation (periods, commas, apostrophes, question marks, exclamation marks).
+3. Adding proper sentence capitalization (sentence beginnings, proper nouns, "I").
+4. Correcting obvious speech-to-text typos while keeping the spoken phrasing natural.
 Return a valid JSON array of objects: [{"i": number, "t": string}] with the exact same count and indices as the input payload.`;
 
       // 7-second timeout race to prevent hanging during AI traffic spikes
@@ -68,8 +98,8 @@ Return a valid JSON array of objects: [{"i": number, "t": string}] with the exac
 
     console.log(`Gemini polished ${items.length} transcript lines successfully.`);
     return polishedItems;
-  } catch (err) {
-    console.warn("Gemini transcript polish error, falling back to raw items:", err);
+  } catch (err: any) {
+    console.warn("Gemini transcript polish error, falling back to raw items:", err?.message || err);
     return items;
   }
 }
@@ -83,16 +113,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Video ID is required" }, { status: 400 });
     }
 
-    // Version 4: Gemini-polished transcript cache key
-    const cacheKey = `transcript:v4:${videoId}`;
+    // Version 5: Cleaned transcript cache key (music tags removed & Gemini polished)
+    const cacheKey = `transcript:v5:${videoId}`;
 
     // 1. Try Permanent Redis Cache first (Instant, 0 API cost)
     try {
       const cachedData = await redis.get(cacheKey);
       if (cachedData) {
-        console.log(`Redis Cache Hit (v4 Polished) for video: ${videoId}`);
+        console.log(`Redis Cache Hit (v5 Cleaned) for video: ${videoId}`);
         const parsed = typeof cachedData === "string" ? JSON.parse(cachedData) : cachedData;
-        return NextResponse.json(parsed.content || parsed);
+        const cleanedCached = cleanTranscriptItems(parsed.content || parsed);
+        return NextResponse.json(cleanedCached);
       }
     } catch (redisError) {
       console.error("Redis Cache Read Error (continuing to fetch):", redisError);
@@ -117,20 +148,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No transcript found for this video" }, { status: 404 });
     }
 
-    const rawItems: TranscriptItem[] = result.content.map((item: any) => ({
-      text: String(item.text || "").trim(),
-      offset: Number(item.offset) || 0,
-      duration: Number(item.duration) || 0,
-    }));
+    // Map and immediately filter out non-speech sound tags like [Music]
+    const rawItems: TranscriptItem[] = cleanTranscriptItems(
+      result.content.map((item: any) => ({
+        text: String(item.text || "").trim(),
+        offset: Number(item.offset) || 0,
+        duration: Number(item.duration) || 0,
+      }))
+    );
 
-    // 3. Post-Process & Polish with Gemini 2.5 Flash (Punctuation, Capitalization, Typos)
+    // 3. Post-Process & Polish with Gemini 2.5 Flash
     console.log(`Polishing transcript with Gemini AI for: ${videoId}`);
-    const polishedTranscript = await polishTranscriptWithGemini(rawItems);
+    const polishedTranscript = cleanTranscriptItems(await polishTranscriptWithGemini(rawItems));
 
-    // 4. Save to Redis Permanently (1 year TTL to act as permanent cache)
+    // 4. Save to Redis Permanently (1 year TTL)
     try {
       await redis.set(cacheKey, JSON.stringify(polishedTranscript), { ex: 31536000 });
-      console.log(`Saved polished transcript to permanent Redis cache for: ${videoId}`);
+      console.log(`Saved polished cleaned transcript to permanent Redis cache for: ${videoId}`);
     } catch (redisSetError) {
       console.error("Redis Cache Save Error:", redisSetError);
     }

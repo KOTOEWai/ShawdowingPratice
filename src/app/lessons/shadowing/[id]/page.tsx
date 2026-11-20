@@ -159,7 +159,19 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         setLoading(true);
         const res = await fetch(`/api/FetchTranscript?videoId=${id}`);
         const data = await res.json();
-        const items = Array.isArray(data) ? data : data?.content || [];
+        const rawItems = Array.isArray(data) ? data : data?.content || [];
+        
+        // Strip out non-speech sound tags like [Music], [Applause], ♪
+        const soundRegex = /\[(?:music|applause|laughter|cheering|cheers|sigh|cough|groan|screaming|snickering|gasp|chuckle|bell|giggle|whisper|snort|sound|audio|silence|intro music|outro music|background music).*?\]|\([a-z\s]*(?:music|applause|laughter|cheering|sound)[a-z\s]*\)|[♪♫♩♬]+/gi;
+        const bracketOnlyRegex = /^\[.*?\]$/;
+
+        const items: TranscriptItem[] = rawItems
+          .map((item: any) => ({
+            ...item,
+            text: String(item.text || "").replace(soundRegex, "").replace(/\s+/g, " ").trim(),
+          }))
+          .filter((item: TranscriptItem) => item.text.length > 0 && !bracketOnlyRegex.test(item.text));
+
         setTranscript(items);
         transcriptRef.current = items;
       } catch (err) {
