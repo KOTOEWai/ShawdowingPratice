@@ -1,14 +1,13 @@
 export interface VideoItem {
   title: string;
- id: { videoId: string };
+  id: { videoId: string };
   snippet: {
     title: string;
     thumbnails: { high: { url: string } };
-     resourceId: { videoId: string };
-   
+    resourceId: { videoId: string };
   };
-  
 }
+
 export interface TopicPageProps {
   movieVideos: VideoItem[];
   dailyVideos: VideoItem[];
@@ -16,18 +15,16 @@ export interface TopicPageProps {
   ielts: VideoItem[];
 }
 
-
 export interface TranscriptItem {
   text: string;
   duration: number;
   offset: number; // ms
 }
 
-
 export interface DictionaryEntry {
   word: string;
   phonetic?: string;
-  synonyms?: string[]; // ဒီစာကြောင်းလေး ထည့်ပေးပါ
+  synonyms?: string[];
   phonetics: {
     text?: string;
     audio?: string;
@@ -49,17 +46,15 @@ export type PopOverProps = {
   cleanWord: string;
 };
 
-
 export type ExternalLinkProps = {
   href: string;
   label: string;
   color: string;
 };
 
-
 export type Colors = {
   [key: string]: string;
-}
+};
 
 export interface VideoRowProps {
   title: string;

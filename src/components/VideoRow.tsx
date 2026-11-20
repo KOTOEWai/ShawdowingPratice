@@ -1,17 +1,16 @@
 import { VideoRowProps } from "@/app/Types/Type";
-
 import Topic from "./Topic";
 import Link from "next/link";
 
-export  const VideoRow = ({ title, link, videos }: VideoRowProps) => (
-  <section className="space-y-6">
+export const VideoRow = ({ title, link, videos }: VideoRowProps) => (
+  <section className="space-y-4">
     <div className="flex justify-between items-center">
-      <h2 className="text-xl font-bold">
-        {title} 
-        <span className="text-blue-400 text-sm font-normal ml-2">(100+ lessons)</span>
+      <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+        {title}
+        <span className="text-[#A667E4] text-xs font-mono font-normal ml-2.5">(100+ lessons)</span>
       </h2>
-      <Link href={link} className="text-blue-400 text-sm hover:underline">
-        View all &gt;
+      <Link href={link} className="text-[#A667E4] hover:text-white text-xs font-medium transition-colors">
+        View all →
       </Link>
     </div>
     <Topic videos={videos} />

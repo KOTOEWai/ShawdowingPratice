@@ -3,55 +3,124 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Myanmar", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --color-surface: #13111C;
+  --color-surface-raised: #1F132A;
+  --color-hairline: #33323E;
+  
+  --color-primary: #853BCE;
+  --color-primary-light: #A667E4;
+  --color-primary-deep: #553F83;
+  
+  --color-ink: #FFFFFF;
+  --color-ink-soft: #F2F1F3;
+  --color-body: #DCDCE0;
+  --color-muted-strong: #C4C4CA;
+  --color-muted: #A1A0AB;
+  --color-muted-2: #878593;
+  --color-muted-3: #6C6B7B;
+  --color-subtle: #545260;
+  
+  --color-success: #367859;
+  --color-success-bright: #42946E;
+  --color-success-surface: #26543F;
+  --color-success-tint: #DFF1E9;
+  
+  --color-info: #306EE8;
+  --color-info-light: #82AAFF;
+  --color-focus-ring: #99C8FF;
+  
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "IBM Plex Serif", Georgia, Cambria, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 :root {
-  --background: #020617;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #020617;
-  --popover-foreground: #f8fafc;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-  --destructive: #ef4444;
-  --destructive-foreground: #f8fafc;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #6366f1;
-  --radius: 0.75rem;
+  --background: #13111C;
+  --foreground: #FFFFFF;
+  --surface: #13111C;
+  --surface-raised: #1F132A;
+  --hairline: #33323E;
+  --primary: #853BCE;
+  --primary-light: #A667E4;
+  --body: #DCDCE0;
+  --muted: #A1A0AB;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: #13111C;
+  color: #DCDCE0;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 @layer utilities {
-  .glass-card {
-    @apply bg-slate-900/40 backdrop-blur-xl border border-white/10 shadow-2xl;
-  }
-
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400;
-  }
-
+  /* Railway Nocturnal Canvas Mesh Glow */
   .bg-mesh {
+    background-color: #13111C;
     background-image:
-      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.1) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, rgba(20, 184, 166, 0.1) 0px, transparent 50%);
+      radial-gradient(at 15% 0%, rgba(133, 59, 206, 0.16) 0px, transparent 45%),
+      radial-gradient(at 85% 10%, rgba(85, 63, 131, 0.20) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(31, 19, 42, 0.7) 0px, transparent 65%);
+  }
+
+  /* Railway Standard Card */
+  .railway-card {
+    background-color: #1F132A;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+  }
+
+  /* Glass-card updated to Railway plum-tinted nocturnal surface */
+  .glass-card {
+    background-color: rgba(31, 19, 42, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Editorial Headline (IBM Plex Serif, tightly tracked) */
+  .hero-headline {
+    font-family: var(--font-serif);
+    letter-spacing: -0.035em;
+  }
+
+  /* Railway Purple Signature Glow and Gradient */
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    background-image: linear-gradient(135deg, #FFFFFF 0%, #E4D5F8 40%, #A667E4 80%, #853BCE 100%);
+  }
+
+  /* Railway Primary Button */
+  .btn-railway-primary {
+    background-color: #853BCE;
+    color: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 24px -4px rgba(133, 59, 206, 0.45);
+  }
+  .btn-railway-primary:hover {
+    background-color: #A667E4;
+    box-shadow: 0 0 32px 0 rgba(166, 103, 228, 0.6);
+  }
+
+  /* Railway Secondary Button */
+  .btn-railway-secondary {
+    background-color: rgba(0, 0, 0, 0.35);
+    color: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  .btn-railway-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.25);
   }
 }

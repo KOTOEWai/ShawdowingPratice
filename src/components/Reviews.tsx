@@ -1,76 +1,83 @@
-import React from 'react';
-import { Star, Quote } from 'lucide-react';
-import Image from 'next/image';
+import React from "react";
+import { Star, Quote } from "lucide-react";
+import Image from "next/image";
+
 const testimonials = [
   {
-    name: "မောင်မောင်",
+    name: "Michael Chen",
     role: "IELTS Student",
     image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTalURue8uREswsyHXvJ9qmw4TSZqCxIEQNjg&s",
-    content: "အရင်က အင်္ဂလိပ်စာ ဖတ်နိုင်ပေမယ့် စကားပြောရင် လေယူလေသိမ်းက လုံးဝမမှန်ဘူး။ ဒီ App နဲ့ နေ့တိုင်း Shadowing လုပ်တာ ၃ လအတွင်း သူငယ်ချင်းတွေကတောင် အသံထွက် ထူးထူးခြားခြား ကောင်းလာတယ်လို့ ပြောကြတယ်။",
-    rating: 5
+    content:
+      "I could read English well, but my spoken cadence felt stiff and unnatural. Daily shadowing with this platform improved my rhythm and helped me achieve Band 8 in IELTS Speaking.",
+    rating: 5,
   },
   {
     name: "Sophia Rose",
     role: "Intermediate Learner",
     image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTalURue8uREswsyHXvJ9qmw4TSZqCxIEQNjg&s",
-    content: "Native speaker တွေရဲ့ အသံကို တိုက်ရိုက်နားထောင်ပြီး လိုက်ပြောရတာ အရမ်းထိရောက်ပါတယ်။ AI က ကိုယ့်အမှားကို ချက်ချင်းထောက်ပြပေးတာက အကြိုက်ဆုံး feature ပါပဲ။",
-    rating: 5
+    content:
+      "Repeating after authentic native videos while receiving real-time AI accuracy scores is unmatched. The interactive transcript makes dictionary lookups completely effortless.",
+    rating: 5,
   },
   {
-    name: "ကိုအောင်",
+    name: "David Miller",
     role: "Business Professional",
     image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTalURue8uREswsyHXvJ9qmw4TSZqCxIEQNjg&s",
-    content: "အလုပ်ကိစ္စနဲ့ နိုင်ငံခြားသားတွေနဲ့ စကားပြောရတဲ့အခါ ပိုပြီး ယုံကြည်မှုရှိလာတယ်။ Shadowing က တကယ်ကို အလုပ်ဖြစ်တဲ့ နည်းလမ်းပါ။",
-    rating: 4
-  }
+    content:
+      "Leading international meetings and speaking with overseas clients used to make me nervous. Shadowing has given me genuine confidence in my spoken English.",
+    rating: 5,
+  },
 ];
 
 const Testimonials = () => {
   return (
-    <section className="py-24  overflow-hidden">
+    <section className="py-20 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 lg:px-20">
-        <div className="text-center mb-20">
-          <h2 className="text-indigo-400 font-black tracking-widest uppercase text-sm mb-4">
+        <div className="text-center mb-16">
+          <h2 className="text-[#A667E4] font-mono tracking-widest uppercase text-xs mb-3">
             Real Stories
           </h2>
-          <h3 className="text-4xl lg:text-6xl font-black text-white">
-            ကျွန်ုပ်တို့၏ သင်ယူသူများ <span className="text-gradient">ပြောစကား</span>
+          <h3 className="hero-headline text-3xl sm:text-5xl font-normal text-white">
+            What Our <span className="text-gradient italic">Learners Say</span>
           </h3>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {testimonials.map((item, index) => (
             <div
               key={index}
-              className="relative p-10 rounded-[2.5rem] glass-card border-white/5 transition-all duration-500 hover:-translate-y-3 hover:shadow-[0_20px_50px_rgba(79,70,229,0.15)] group overflow-hidden"
+              className="relative p-7 sm:p-8 rounded-xl bg-[#1F132A] border border-[#33323E] hover:border-[#853BCE]/40 transition-all duration-300 hover:-translate-y-1 shadow-xl group overflow-hidden"
             >
               {/* Quote Icon Background */}
-              <Quote className="absolute top-8 right-10 text-indigo-500/10 group-hover:text-indigo-500/20 transition-all duration-500 scale-150 rotate-12" size={60} />
+              <Quote
+                className="absolute top-6 right-6 text-white/5 group-hover:text-[#853BCE]/10 transition-all duration-300 rotate-12"
+                size={48}
+              />
 
               {/* Stars */}
-              <div className="flex gap-1 mb-6">
+              <div className="flex gap-1 mb-5">
                 {[...Array(item.rating)].map((_, i) => (
-                  <Star key={i} size={16} className="fill-amber-400 text-amber-400" />
+                  <Star key={i} size={15} className="fill-amber-400 text-amber-400" />
                 ))}
               </div>
 
               {/* Content */}
-              <p className="text-slate-300 text-lg leading-relaxed mb-10 font-medium italic relative z-10">
+              <p className="text-[#DCDCE0] text-sm leading-relaxed mb-8 font-normal italic relative z-10">
                 &quot;{item.content}&quot;
               </p>
 
               {/* User Info */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3.5">
                 <Image
                   src={item.image}
-                  width={200}
-                  height={200}
+                  width={44}
+                  height={44}
                   alt={item.name}
-                  className="w-14 h-14 rounded-2xl bg-indigo-500/10 border-2 border-white/10 shadow-lg object-cover"
+                  className="w-11 h-11 rounded-lg border border-[#33323E] object-cover"
                 />
                 <div>
-                  <h4 className="font-black text-white text-lg">{item.name}</h4>
-                  <p className="text-xs text-indigo-400 font-bold uppercase tracking-wider">{item.role}</p>
+                  <h4 className="font-semibold text-white text-sm">{item.name}</h4>
+                  <p className="text-[11px] text-[#A667E4] font-mono uppercase tracking-wider">{item.role}</p>
                 </div>
               </div>
             </div>

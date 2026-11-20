@@ -4,7 +4,6 @@ import { DictionaryEntry } from "@/app/Types/Type";
 import React, { useState, useEffect, useRef } from "react";
 import PopoverContent from "./PopoverContext";
 
-
 const getCleanWord = (word: string) => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").toLowerCase();
 
 const getSavedWords = (): DictionaryEntry[] => {
@@ -22,7 +21,7 @@ export default function WordWithMeaning({ word }: { word: string }) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const cleanWord = getCleanWord(word);
 
-  // စကားလုံး သိမ်းထားပြီးသား ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+  // Check if word is already saved in vocabulary
   useEffect(() => {
     if (show) {
       const exists = getSavedWords().some((item) => item.word === cleanWord);
@@ -59,12 +58,15 @@ export default function WordWithMeaning({ word }: { word: string }) {
     if (isSaved) {
       updatedList = savedWords.filter((item) => item.word !== cleanWord);
     } else {
-      updatedList = [...savedWords, {
-        word: cleanWord,
-        definition: data?.meanings[0]?.definitions[0]?.definition,
-        phonetic: data?.phonetic || data?.phonetics?.[0]?.text,
-        addedAt: new Date().toISOString()
-      }];
+      updatedList = [
+        ...savedWords,
+        {
+          word: cleanWord,
+          definition: data?.meanings[0]?.definitions[0]?.definition,
+          phonetic: data?.phonetic || data?.phonetics?.[0]?.text,
+          addedAt: new Date().toISOString(),
+        },
+      ];
     }
 
     localStorage.setItem("vocabulary", JSON.stringify(updatedList));
@@ -88,8 +90,9 @@ export default function WordWithMeaning({ word }: { word: string }) {
     <span className="relative inline-block mx-0.5" ref={containerRef}>
       <span
         onClick={handleLookup}
-        className={`cursor-pointer hover:text-indigo-400 transition-colors border-b border-dotted ${show ? "text-indigo-400 border-indigo-400" : "border-slate-600"
-          }`}
+        className={`cursor-pointer hover:text-[#A667E4] transition-colors border-b border-dotted ${
+          show ? "text-[#A667E4] border-[#853BCE]" : "border-[#33323E]"
+        }`}
       >
         {word}
       </span>
@@ -107,6 +110,3 @@ export default function WordWithMeaning({ word }: { word: string }) {
     </span>
   );
 }
-
-
-

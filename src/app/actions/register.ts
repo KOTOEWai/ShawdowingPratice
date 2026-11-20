@@ -1,7 +1,6 @@
 "use server";
 
-import dbConnect from "@/app/lib/dbConnect";
-import User from "@/models/User";
+import prisma from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
 
 export async function registerUser(formData: FormData) {
@@ -14,8 +13,9 @@ export async function registerUser(formData: FormData) {
     }
 
     try {
-        await dbConnect();
-        const existingUser = await User.findOne({ email });
+        const existingUser = await prisma.user.findUnique({
+            where: { email },
+        });
 
         if (existingUser) {
             return { error: "User already exists" };
@@ -23,10 +23,12 @@ export async function registerUser(formData: FormData) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await User.create({
-            name,
-            email,
-            password: hashedPassword,
+        await prisma.user.create({
+            data: {
+                name,
+                email,
+                password: hashedPassword,
+            },
         });
 
         return { success: "Account created successfully" };
