@@ -58,6 +58,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const transcriptRef = useRef<TranscriptItem[]>([]);
 
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [focusedIndex, setFocusedIndex] = useState<number>(0);
+
+  // Sync focusedIndex so the focus card persists during breath pauses & silence
+  useEffect(() => {
+    if (activeIndex !== -1) {
+      setFocusedIndex(activeIndex);
+    }
+  }, [activeIndex]);
   const [loading, setLoading] = useState(true);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [isLooping, setIsLooping] = useState<boolean>(false);
@@ -358,12 +366,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   }, [transcript, activeIndex, handleSeek]);
 
   const handleReplayCurrent = useCallback(() => {
-    if (transcript.length === 0 || activeIndex === -1) return;
-    const target = transcript[activeIndex];
+    if (transcript.length === 0) return;
+    const targetIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
+    const target = transcript[targetIdx];
     if (target) {
-      handleSeek(target.offset, activeIndex);
+      handleSeek(target.offset, targetIdx);
     }
-  }, [transcript, activeIndex, handleSeek]);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
   const handleNextLine = useCallback(() => {
     if (transcript.length === 0) return;
@@ -461,11 +470,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       return;
     }
 
-    if (activeIndex === -1 || !transcript[activeIndex]) return;
+    const targetIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
+    if (targetIdx === -1 || !transcript[targetIdx]) return;
 
     try {
       setTranslating(true);
-      const res = await fetch(`/api/translate?text=${encodeURIComponent(transcript[activeIndex].text)}&tl=my`);
+      const res = await fetch(`/api/translate?text=${encodeURIComponent(transcript[targetIdx].text)}&tl=my`);
       const data = await res.json();
       if (data.translated) {
         setSentenceTranslation(data.translated);
@@ -507,7 +517,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         handleNextLine();
       } else if (e.key === "m" || e.key === "M") {
         e.preventDefault();
-        if (activeIndex !== -1) toggleMastered(activeIndex);
+        const targetM = activeIndex !== -1 ? activeIndex : focusedIndex;
+        if (targetM >= 0) toggleMastered(targetM);
       } else if (e.key === "s" || e.key === "S") {
         e.preventDefault();
         cycleSpeed();
@@ -519,7 +530,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleReplayCurrent, handlePrevLine, handleNextLine, activeIndex, toggleMastered, cycleSpeed]);
+  }, [handleReplayCurrent, handlePrevLine, handleNextLine, activeIndex, focusedIndex, toggleMastered, cycleSpeed]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -530,6 +541,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const masteryPercent = transcript.length > 0 ? Math.round((masteredIndices.size / transcript.length) * 100) : 0;
   const isLessonFinished = transcript.length > 0 && masteredIndices.size === transcript.length;
+
+  const displayIndex = activeIndex !== -1 ? activeIndex : (focusedIndex < transcript.length ? focusedIndex : 0);
+  const currentSentence = transcript[displayIndex] || transcript[0];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6 bg-[#13111C] min-h-screen">
@@ -761,104 +775,101 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
 
-        {/* Active Shadowing Sentence Focus Card */}
-        <AnimatePresence mode="wait">
-          {activeIndex !== -1 && transcript[activeIndex] && (
-            <motion.div
-              key={activeIndex}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="bg-[#1F132A] border border-[#33323E] rounded-xl p-5 shadow-xl"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono tracking-wider uppercase text-[#A667E4] font-semibold flex items-center gap-1.5">
-                    <Volume2 size={13} className="animate-pulse" /> Active Sentence
-                  </span>
-                  <span className="text-xs font-mono text-[#6C6B7B]">
-                    Line {activeIndex + 1} of {transcript.length}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* Blind Mode Peek Button */}
-                  {shadowingMode === "blind" && (
-                    <button
-                      onClick={() => setPeekBlind((v) => !v)}
-                      className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#DCDCE0] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      {peekBlind ? <EyeOff size={12} /> : <Eye size={12} />}
-                      <span>{peekBlind ? "Hide" : "Peek"}</span>
-                    </button>
-                  )}
-
-                  {/* Translate Button */}
-                  <button
-                    onClick={handleTranslateToggle}
-                    disabled={translating}
-                    className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#A1A0AB] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
-                    title="Translate this sentence"
-                  >
-                    {translating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={12} />}
-                    <span>{showTranslation ? "Hide Meaning" : "Translate"}</span>
-                  </button>
-
-                  {/* Mark as Mastered button */}
-                  <button
-                    onClick={() => toggleMastered(activeIndex)}
-                    className={`px-2.5 py-1 rounded border text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer ${
-                      masteredIndices.has(activeIndex)
-                        ? "bg-[#26543F] text-[#42946E] border-[#367859] font-semibold"
-                        : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white"
-                    }`}
-                    title="Mark this sentence as mastered (M)"
-                  >
-                    <Check size={11} />
-                    <span>{masteredIndices.has(activeIndex) ? "Mastered" : "Mark Mastered"}</span>
-                  </button>
-                </div>
+        {/* Active Shadowing Sentence Focus Card - Persistent Container (Zero layout shift / No jumping) */}
+        {transcript.length > 0 && currentSentence && (
+          <div className="bg-[#1F132A] border border-[#33323E] rounded-xl p-5 shadow-xl transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono tracking-wider uppercase text-[#A667E4] font-semibold flex items-center gap-1.5">
+                  <Volume2
+                    size={13}
+                    className={activeIndex !== -1 ? "text-[#A667E4] animate-pulse" : "text-[#6C6B7B]"}
+                  />{" "}
+                  {activeIndex !== -1 ? "Active Sentence" : "Current Focus"}
+                </span>
+                <span className="text-xs font-mono text-[#6C6B7B]">
+                  Line {displayIndex + 1} of {transcript.length}
+                </span>
               </div>
 
-              {/* Large Typography Sentence (with Blind Mode blur support) */}
-              <div
-                className={`transition-all duration-300 ${
-                  shadowingMode === "blind" && !peekBlind
-                    ? "filter blur-md select-none opacity-40 hover:filter-none hover:opacity-100"
-                    : ""
-                }`}
-              >
-                <p className="text-base sm:text-xl text-white leading-relaxed font-normal select-text">
-                  {transcript[activeIndex].text.split(" ").map((word, wIdx) => (
-                    <WordWithMeaning key={wIdx} word={word} />
-                  ))}
-                </p>
-              </div>
+              <div className="flex items-center gap-2">
+                {/* Blind Mode Peek Button */}
+                {shadowingMode === "blind" && (
+                  <button
+                    onClick={() => setPeekBlind((v) => !v)}
+                    className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#DCDCE0] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    {peekBlind ? <EyeOff size={12} /> : <Eye size={12} />}
+                    <span>{peekBlind ? "Hide" : "Peek"}</span>
+                  </button>
+                )}
 
-              {/* Contextual Translation Drawer */}
-              {showTranslation && sentenceTranslation && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="mt-3 pt-3 border-t border-[#33323E] text-xs sm:text-sm text-[#A667E4] leading-relaxed"
+                {/* Translate Button */}
+                <button
+                  onClick={handleTranslateToggle}
+                  disabled={translating}
+                  className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#A1A0AB] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                  title="Translate this sentence"
                 >
-                  <span className="font-mono text-[10px] uppercase text-[#6C6B7B] block mb-1">
-                    Myanmar Translation:
-                  </span>
-                  {sentenceTranslation}
-                </motion.div>
-              )}
+                  {translating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={12} />}
+                  <span>{showTranslation ? "Hide Meaning" : "Translate"}</span>
+                </button>
 
-              {/* Local A/B Voice Comparison Widget with Waveform */}
-              <AudioComparison
-                sentenceText={transcript[activeIndex].text}
-                onPlayNative={() => handleSeek(transcript[activeIndex].offset, activeIndex)}
-                onMasteredToggle={() => toggleMastered(activeIndex)}
-                isMastered={masteredIndices.has(activeIndex)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {/* Mark as Mastered button */}
+                <button
+                  onClick={() => toggleMastered(displayIndex)}
+                  className={`px-2.5 py-1 rounded border text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer ${
+                    masteredIndices.has(displayIndex)
+                      ? "bg-[#26543F] text-[#42946E] border-[#367859] font-semibold"
+                      : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white"
+                  }`}
+                  title="Mark this sentence as mastered (M)"
+                >
+                  <Check size={11} />
+                  <span>{masteredIndices.has(displayIndex) ? "Mastered" : "Mark Mastered"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Large Typography Sentence (with Blind Mode blur support) */}
+            <div
+              key={displayIndex}
+              className={`transition-all duration-300 min-h-[36px] flex items-center ${
+                shadowingMode === "blind" && !peekBlind
+                  ? "filter blur-md select-none opacity-40 hover:filter-none hover:opacity-100"
+                  : ""
+              }`}
+            >
+              <p className="text-base sm:text-xl text-white leading-relaxed font-normal select-text">
+                {currentSentence.text.split(" ").map((word, wIdx) => (
+                  <WordWithMeaning key={wIdx} word={word} />
+                ))}
+              </p>
+            </div>
+
+            {/* Contextual Translation Drawer */}
+            {showTranslation && sentenceTranslation && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="mt-3 pt-3 border-t border-[#33323E] text-xs sm:text-sm text-[#A667E4] leading-relaxed"
+              >
+                <span className="font-mono text-[10px] uppercase text-[#6C6B7B] block mb-1">
+                  Myanmar Translation:
+                </span>
+                {sentenceTranslation}
+              </motion.div>
+            )}
+
+            {/* Local A/B Voice Comparison Widget with Waveform */}
+            <AudioComparison
+              sentenceText={currentSentence.text}
+              onPlayNative={() => handleSeek(currentSentence.offset, displayIndex)}
+              onMasteredToggle={() => toggleMastered(displayIndex)}
+              isMastered={masteredIndices.has(displayIndex)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Right Column: Interactive Synced Transcript & Progress */}
