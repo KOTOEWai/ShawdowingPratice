@@ -45,6 +45,7 @@ import {
   EyeOff,
   Headphones,
   Mic,
+  Layers,
 } from "lucide-react";
 
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
@@ -74,8 +75,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
 
-  // Advanced Learning Modes: 'normal' | 'blind'
-  const [shadowingMode, setShadowingMode] = useState<"normal" | "blind">("normal");
+  // Shadowing Modes: 'step' (ShadowingEnglish Listen & Repeat) | 'continuous' (Speak Along) | 'blind' (Ear Training)
+  const [shadowingMode, setShadowingMode] = useState<"continuous" | "step" | "blind">("step");
+  const shadowingModeRef = useRef<"continuous" | "step" | "blind">("step");
+  shadowingModeRef.current = shadowingMode;
+
+  // Step-by-Step Paused status (ShadowingEnglish signature pause at sentence end)
+  const [isStepPaused, setIsStepPaused] = useState<boolean>(false);
+  const isStepPausedRef = useRef<boolean>(false);
 
   const [peekBlind, setPeekBlind] = useState<boolean>(false);
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
@@ -104,9 +111,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const activeIndexRef = useRef(-1);
   activeIndexRef.current = activeIndex;
-
-  const shadowingModeRef = useRef<"normal" | "blind">("normal");
-  shadowingModeRef.current = shadowingMode;
 
   // Sync transcriptRef & masteredIndicesRef
   useEffect(() => {
@@ -163,6 +167,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
    * Seek with pre-roll buffer (150ms lead-in) so speech starts naturally.
    */
   const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
+    isStepPausedRef.current = false;
+    setIsStepPaused(false);
+
     if (playerRef.current) {
       const targetSec = Math.max(0, (offset - 150) / 1000);
       playerRef.current.currentTime(targetSec);
@@ -277,6 +284,31 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
           if (currentMs >= endMs) {
             player.currentTime(startSec);
+            return;
+          }
+        }
+      }
+
+      // Handle Step-by-Step Mode (ShadowingEnglish: Listen & Repeat auto-pause at line end)
+      if (
+        shadowingModeRef.current === "step" &&
+        !isStepPausedRef.current &&
+        activeIndexRef.current !== -1
+      ) {
+        const curIdx = activeIndexRef.current;
+        const currentItem = items[curIdx];
+        if (currentItem) {
+          const nextItem = items[curIdx + 1];
+          const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
+          let endMs = currentItem.offset + duration + 100;
+          if (nextItem && nextItem.offset > currentItem.offset) {
+            endMs = Math.min(endMs, nextItem.offset - 50);
+          }
+
+          if (currentMs >= endMs) {
+            isStepPausedRef.current = true;
+            setIsStepPaused(true);
+            player.pause();
             return;
           }
         }
@@ -478,12 +510,24 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
       if (e.code === "Space") {
         e.preventDefault();
+        // ShadowingEnglish Step Mode: If paused at line end, Space advances to the next sentence!
+        if (shadowingModeRef.current === "step" && isStepPausedRef.current) {
+          handleNextLine();
+          return;
+        }
+
         if (playerRef.current) {
           if (playerRef.current.paused()) {
             playerRef.current.play();
           } else {
             playerRef.current.pause();
           }
+        }
+      } else if (e.key === "Enter") {
+        if (shadowingModeRef.current === "step" && isStepPausedRef.current) {
+          e.preventDefault();
+          handleNextLine();
+          return;
         }
       } else if (e.key === "r" || e.key === "R") {
         e.preventDefault();
@@ -641,7 +685,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           <div ref={videoRef} data-vjs-player />
         </div>
 
-        {/* Shadowing Methodology Mode Bar */}
+        {/* Shadowing Methodology Mode Bar (ShadowingEnglish style with Grunge Rock aesthetic) */}
         <div className="bg-[#181622] border border-[#33323E] rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5">
           <span className="text-[11px] font-mono uppercase tracking-wider text-[#A1A0AB] font-semibold pl-1">
             Shadowing Mode:
@@ -650,16 +694,38 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
               {[
-                { id: "normal", label: "Normal", icon: <Headphones size={12} />, title: "Standard continuous video practice" },
-                { id: "blind", label: "Blind (Ear Training)", icon: <EyeOff size={12} />, title: "Blurs subtitles to train your listening comprehension first" },
+                {
+                  id: "step",
+                  label: "Step-by-Step",
+                  icon: <Layers size={12} />,
+                  title: "ShadowingEnglish: Auto-pauses at each line end. Press Space or Next to advance",
+                },
+                {
+                  id: "continuous",
+                  label: "Speak Along",
+                  icon: <Headphones size={12} />,
+                  title: "Continuous playback for fluent speaking along with the speaker",
+                },
+                {
+                  id: "blind",
+                  label: "Blind (Ear Training)",
+                  icon: <EyeOff size={12} />,
+                  title: "Blurs subtitles to train your listening comprehension first",
+                },
               ].map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => setShadowingMode(m.id as "normal" | "blind")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  onClick={() => {
+                    const mode = m.id as "continuous" | "step" | "blind";
+                    setShadowingMode(mode);
+                    shadowingModeRef.current = mode;
+                    isStepPausedRef.current = false;
+                    setIsStepPaused(false);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer active:translate-y-px ${
                     shadowingMode === m.id
-                      ? "bg-[#853BCE] text-white shadow-md shadow-[#853BCE]/25"
-                      : "bg-[#13111C] border border-[#33323E] text-[#A1A0AB] hover:text-white"
+                      ? "bg-[#B5A642] text-[#2E2E2E] font-bold shadow-md shadow-[#B5A642]/20"
+                      : "bg-[#13111C] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#B5A642]/40"
                   }`}
                   title={m.title}
                 >
@@ -797,6 +863,40 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </button>
               </div>
             </div>
+
+            {/* Step-by-Step Status Prompt Banner (ShadowingEnglish style) */}
+            {isStepPaused && shadowingMode === "step" && (
+              <div className="mb-4 p-3 rounded-lg bg-[#B5A642]/15 border border-[#B5A642]/50 flex flex-wrap items-center justify-between gap-2.5 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#B5A642] animate-pulse" />
+                  <span className="text-xs font-mono font-semibold text-[#E9E1D4]">
+                    Sentence Finished — Repeat out loud!
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleNextLine}
+                    className="px-3 py-1.5 rounded-lg bg-[#B5A642] hover:bg-[#c4b54e] text-[#2E2E2E] text-xs font-mono font-bold transition-all flex items-center gap-1.5 shadow cursor-pointer active:translate-y-px"
+                    title="Continue to next sentence (Spacebar or Enter)"
+                  >
+                    <span>Next Line</span>
+                    <SkipForward size={12} />
+                    <kbd className="text-[10px] bg-[#2E2E2E]/20 px-1 rounded">Space</kbd>
+                  </button>
+
+                  <button
+                    onClick={handleReplayCurrent}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#181622] border border-[#7A7A7A]/50 hover:border-[#B5A642] text-[#E9E1D4] text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer active:translate-y-px"
+                    title="Replay this sentence (R)"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Replay</span>
+                    <kbd className="text-[10px] bg-[#13111C] px-1 rounded text-[#B5A642]">R</kbd>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Large Typography Sentence (with Blind Mode blur support) */}
             <div

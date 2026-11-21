@@ -13,7 +13,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: "Space", desc: "Play or pause video" },
+    { key: "Space / Enter", desc: "Play/Pause (or Advance to next line when paused in Step mode)" },
     { key: "R", desc: "Replay current active sentence" },
     { key: "L", desc: "Toggle sentence loop mode (continuous shadowing)" },
     { key: "← (Left)", desc: "Jump to previous sentence" },
