@@ -13,8 +13,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: "Space", desc: "Play/Pause (or Advance immediately when in Wait / Manual Mode)" },
-    { key: "Enter", desc: "Jump to Next sentence" },
+    { key: "Space", desc: "Play / Pause video playback" },
     { key: "R", desc: "Replay current active sentence" },
     { key: "L", desc: "Toggle single sentence loop" },
     { key: "← (Left)", desc: "Jump to previous sentence" },
@@ -26,12 +25,12 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-none">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
-          className="relative w-full max-w-md bg-[#1F132A] border border-[#3A3A3A] rounded-none p-6 shadow-2xl text-[#E9E1D4]"
+          className="relative w-full max-w-md bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-6 shadow-2xl text-[#E9E1D4]"
         >
           {/* Close button */}
           <button
@@ -43,7 +42,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
 
           {/* Header */}
           <div className="flex items-center gap-3 mb-5 border-b border-[#3A3A3A] pb-3">
-            <div className="w-8 h-8 rounded-none bg-[#B5A642]/20 border border-[#B5A642] flex items-center justify-center text-[#B5A642]">
+            <div className="w-8 h-8 rounded-sm bg-[#B5A642]/20 border border-[#B5A642] flex items-center justify-center text-[#B5A642]">
               <Keyboard size={18} />
             </div>
             <div>
@@ -59,10 +58,10 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
             {shortcuts.map((sc, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between p-2 bg-[#2E2E2E] border border-[#3A3A3A]"
+                className="flex items-center justify-between p-2 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm"
               >
                 <span className="text-xs text-[#E9E1D4]/90 pr-2">{sc.desc}</span>
-                <kbd className="px-2 py-0.5 bg-[#1F132A] border border-[#B5A642]/50 text-[11px] font-mono text-[#B5A642] font-bold shrink-0">
+                <kbd className="px-2 py-0.5 bg-[#1F132A] border border-[#B5A642]/50 text-[11px] font-mono text-[#B5A642] font-bold shrink-0 rounded-sm">
                   {sc.key}
                 </kbd>
               </div>
@@ -72,7 +71,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-5 py-2 text-xs font-mono font-bold uppercase bg-[#B5A642] text-[#1F132A] hover:bg-[#B5A642]/90 transition-colors"
+              className="px-5 py-2 text-xs font-mono font-bold uppercase bg-[#B5A642] text-[#1F132A] hover:bg-[#B5A642]/90 transition-colors rounded-sm"
             >
               Got it
             </button>

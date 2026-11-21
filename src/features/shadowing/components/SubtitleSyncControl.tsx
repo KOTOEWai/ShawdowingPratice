@@ -2,13 +2,18 @@
 
 import React from "react";
 import { Minus, Plus, RefreshCw, SlidersHorizontal } from "lucide-react";
-import { formatOffsetDisplay } from "../engine/waitModeEngine";
 
 interface SubtitleSyncControlProps {
   offsetMs: number;
   onAdjustOffset: (deltaMs: number) => void;
   onResetOffset: () => void;
   className?: string;
+}
+
+function formatOffsetDisplay(offsetMs: number): string {
+  if (offsetMs === 0) return "0ms";
+  if (offsetMs > 0) return `+${offsetMs}ms`;
+  return `${offsetMs}ms`;
 }
 
 export default function SubtitleSyncControl({

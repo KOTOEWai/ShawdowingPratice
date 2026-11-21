@@ -13,13 +13,7 @@ import {
   recordMasteredLineProgress,
   StreakData,
   DAILY_STREAK_TARGET,
-  WaitModeSelector,
   SubtitleSyncControl,
-  useShadowingEngine,
-  calculateEffectiveTime,
-  isInputField,
-  WaitMode,
-  PlaybackState,
 } from "@/features/shadowing";
 import { WordWithMeaning } from "@/features/vocabulary";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
@@ -50,11 +44,8 @@ import {
   Trophy,
   Eye,
   EyeOff,
-  Headphones,
-  Mic,
   Play,
   Pause,
-  Clock,
 } from "lucide-react";
 
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
@@ -68,10 +59,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const transcriptRef = useRef<TranscriptItem[]>([]);
 
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const activeIndexRef = useRef<number>(-1);
+  activeIndexRef.current = activeIndex;
+
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
+  const [isLooping, setIsLooping] = useState<boolean>(false);
+  const isLoopingRef = useRef<boolean>(false);
+  isLoopingRef.current = isLooping;
+
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const [subtitleOffsetMs, setSubtitleOffsetMs] = useState<number>(0);
+  const subtitleOffsetMsRef = useRef<number>(0);
+  subtitleOffsetMsRef.current = subtitleOffsetMs;
+
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
 
@@ -98,6 +102,44 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const isLessonCompletedRef = useRef<boolean>(false);
   const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false);
   const [completionReason, setCompletionReason] = useState<"mastery" | "playthrough" | "manual">("mastery");
+
+  // Sync focusedIndex so the focus card persists during breath pauses & silence
+  useEffect(() => {
+    if (activeIndex !== -1) {
+      setFocusedIndex(activeIndex);
+    }
+  }, [activeIndex]);
+
+  // Sync transcriptRef & masteredIndicesRef
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    masteredIndicesRef.current = masteredIndices;
+  }, [masteredIndices]);
+
+  // Load mastered lines and bookmark state on mount
+  useEffect(() => {
+    try {
+      const savedMastered = localStorage.getItem(`mastered_lesson_${id}`);
+      if (savedMastered) {
+        setMasteredIndices(new Set(JSON.parse(savedMastered)));
+      }
+
+      const savedBookmarks = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
+      setIsBookmarked(savedBookmarks.some((l: { id: string }) => l.id === id));
+
+      const completedLessons = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
+      const isAlreadyCompleted = completedLessons.some((l: { id: string }) => l.id === id);
+      if (isAlreadyCompleted) {
+        setIsLessonCompleted(true);
+        isLessonCompletedRef.current = true;
+      }
+    } catch (e) {
+      console.warn("Storage read error:", e);
+    }
+  }, [id]);
 
   // Trigger Lesson Completion
   const triggerLessonCompletion = useCallback(
@@ -141,76 +183,25 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     }
   }, [id]);
 
-  // Centralized Playback Engine Hook
-  const {
-    playbackState,
-    setPlaybackState,
-    waitMode,
-    setWaitMode,
-    isLooping,
-    toggleLoop,
-    subtitleOffsetMs,
-    adjustSubtitleOffset,
-    resetSubtitleOffset,
-    activeIndex,
-    setActiveIndex,
-    waitDurationMs,
-    waitRemainingMs,
-    evaluatePlaybackPosition,
-    seekToSentence,
-    handleReplayCurrent,
-    handleNextLine,
-    handlePrevLine,
-    togglePlayPause,
-    cancelWaitTimers,
-  } = useShadowingEngine({
-    transcript,
-    playerRef,
-    onActiveIndexChange: (idx) => {
-      if (idx !== -1) {
-        setFocusedIndex(idx);
+  // Seek video to specific sentence offset
+  const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
+    if (playerRef.current) {
+      const targetSec = Math.max(0, (offset - 150) / 1000);
+      playerRef.current.currentTime(targetSec);
+      playerRef.current.play();
+
+      const resolvedIdx =
+        typeof explicitIndex === "number"
+          ? explicitIndex
+          : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
+
+      if (resolvedIdx >= 0) {
+        activeIndexRef.current = resolvedIdx;
+        setActiveIndex(resolvedIdx);
+        setFocusedIndex(resolvedIdx);
       }
-    },
-    onLessonComplete: triggerLessonCompletion,
-    initialWaitMode: "30%",
-  });
-
-  const subtitleOffsetMsRef = useRef<number>(0);
-  subtitleOffsetMsRef.current = subtitleOffsetMs;
-
-  const activeIndexRef = useRef<number>(-1);
-  activeIndexRef.current = activeIndex;
-
-  // Sync transcriptRef & masteredIndicesRef
-  useEffect(() => {
-    transcriptRef.current = transcript;
-  }, [transcript]);
-
-  useEffect(() => {
-    masteredIndicesRef.current = masteredIndices;
-  }, [masteredIndices]);
-
-  // Load mastered lines and bookmark state on mount
-  useEffect(() => {
-    try {
-      const savedMastered = localStorage.getItem(`mastered_lesson_${id}`);
-      if (savedMastered) {
-        setMasteredIndices(new Set(JSON.parse(savedMastered)));
-      }
-
-      const savedBookmarks = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
-      setIsBookmarked(savedBookmarks.some((l: { id: string }) => l.id === id));
-
-      const completedLessons = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
-      const isAlreadyCompleted = completedLessons.some((l: { id: string }) => l.id === id);
-      if (isAlreadyCompleted) {
-        setIsLessonCompleted(true);
-        isLessonCompletedRef.current = true;
-      }
-    } catch (e) {
-      console.warn("Storage read error:", e);
     }
-  }, [id]);
+  }, []);
 
   /* 1. Fetch Transcript & clean non-speech tags */
   useEffect(() => {
@@ -256,8 +247,20 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       const items = transcriptRef.current;
       if (!items || items.length === 0) return;
 
-      // Evaluate sentence boundaries & wait mode logic
-      evaluatePlaybackPosition(rawCurrentMs);
+      // Handle Sentence Loop Mode
+      if (isLoopingRef.current && activeIndexRef.current !== -1) {
+        const currentItem = items[activeIndexRef.current];
+        if (currentItem) {
+          const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
+          const endMs = currentItem.offset + duration + 100;
+          const startSec = Math.max(0, (currentItem.offset - 150) / 1000);
+
+          if (rawCurrentMs >= endMs) {
+            player.currentTime(startSec);
+            return;
+          }
+        }
+      }
 
       // Playthrough detection near end of video
       try {
@@ -269,31 +272,22 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       } catch {}
 
       // Calculate effective time with subtitle offset for UI transcript highlighting ONLY
-      const effectiveMs = calculateEffectiveTime(rawCurrentMs, subtitleOffsetMsRef.current);
+      const effectiveMs = Math.max(0, rawCurrentMs + subtitleOffsetMsRef.current);
       const newIndex = findActiveTranscriptIndex(items, effectiveMs);
 
       if (newIndex !== -1 && newIndex !== activeIndexRef.current) {
+        activeIndexRef.current = newIndex;
         setActiveIndex(newIndex);
       }
     };
 
     player.on("timeupdate", syncTranscript);
     player.on("seeked", syncTranscript);
-    player.on("play", () => {
-      setPlaybackState(isLooping ? "looping" : "playing");
-    });
-    player.on("pause", () => {
-      // If we are not currently in a wait or manual-pause state, transition to idle
-      setPlaybackState((current) => {
-        if (current === "waiting" || current === "manual-paused") {
-          return current;
-        }
-        return "idle";
-      });
-    });
+    player.on("play", () => setIsPlaying(true));
+    player.on("pause", () => setIsPlaying(false));
     player.on("ended", () => {
+      setIsPlaying(false);
       triggerLessonCompletion("playthrough");
-      setPlaybackState("ended");
     });
     player.on("ratechange", () => {
       const rate = player.playbackRate();
@@ -301,13 +295,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     });
 
     return () => {
-      cancelWaitTimers();
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;
       }
     };
-  }, [id, evaluatePlaybackPosition, setActiveIndex, triggerLessonCompletion, cancelWaitTimers, isLooping, setPlaybackState]);
+  }, [id, triggerLessonCompletion]);
 
   /* 3. Handle Auto-Scroll INSIDE transcript container ONLY (Never scroll the main window) */
   useEffect(() => {
@@ -330,26 +323,39 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     setSentenceTranslation(null);
   }, [activeIndex, autoScroll]);
 
-  // Seek handler from clicking transcript items
-  const handleSeek = useCallback(
-    (offset: number, explicitIndex?: number) => {
-      const resolvedIdx =
-        typeof explicitIndex === "number"
-          ? explicitIndex
-          : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
+  // Controls Navigation
+  const handlePrevLine = useCallback(() => {
+    if (transcript.length === 0) return;
+    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
+    const targetIdx = baseIdx > 0 ? baseIdx - 1 : 0;
+    handleSeek(transcript[targetIdx].offset, targetIdx);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
-      if (resolvedIdx >= 0) {
-        seekToSentence(resolvedIdx);
-      } else if (playerRef.current) {
-        const targetSec = Math.max(0, (offset - 150) / 1000);
-        playerRef.current.currentTime(targetSec);
-        playerRef.current.play();
-      }
-    },
-    [seekToSentence]
-  );
+  const handleReplayCurrent = useCallback(() => {
+    if (transcript.length === 0) return;
+    const targetIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
+    const target = transcript[targetIdx];
+    if (target) {
+      handleSeek(target.offset, targetIdx);
+    }
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
-  // Playback Speed Controls
+  const handleNextLine = useCallback(() => {
+    if (transcript.length === 0) return;
+    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
+    const targetIdx = baseIdx < transcript.length - 1 ? baseIdx + 1 : transcript.length - 1;
+    handleSeek(transcript[targetIdx].offset, targetIdx);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
+
+  const togglePlayPause = useCallback(() => {
+    if (!playerRef.current) return;
+    if (playerRef.current.paused()) {
+      playerRef.current.play();
+    } else {
+      playerRef.current.pause();
+    }
+  }, []);
+
   const handleSpeedPreset = useCallback((speed: number) => {
     if (playerRef.current) {
       playerRef.current.playbackRate(speed);
@@ -459,7 +465,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   /* 4. Keyboard Shortcuts with Input Field Protection */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isInputField(e.target)) return;
+      const target = e.target as HTMLElement | null;
+      const tagName = (target?.tagName || "").toLowerCase();
+      if (tagName === "input" || tagName === "textarea" || tagName === "select" || target?.isContentEditable) {
+        return;
+      }
 
       if (e.code === "Space") {
         e.preventDefault();
@@ -472,7 +482,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         handleReplayCurrent();
       } else if (e.key === "l" || e.key === "L") {
         e.preventDefault();
-        toggleLoop();
+        setIsLooping((v) => !v);
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         handlePrevLine();
@@ -498,7 +508,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     togglePlayPause,
     handleNextLine,
     handleReplayCurrent,
-    toggleLoop,
     handlePrevLine,
     activeIndex,
     focusedIndex,
@@ -518,8 +527,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const displayIndex = activeIndex !== -1 ? activeIndex : (focusedIndex < transcript.length ? focusedIndex : 0);
   const currentSentence = transcript[displayIndex] || transcript[0];
-
-  const isVideoPlaying = playbackState === "playing" || playbackState === "looping";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6 bg-[#2E2E2E] min-h-screen text-[#E9E1D4]">
@@ -551,10 +558,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         reason={completionReason}
       />
 
-      {/* Left Column: Video + Wait Controls + Focus Card + Audio Comparison */}
+      {/* Left Column: Video + Controls + Focus Card + Audio Comparison */}
       <div className="lg:col-span-2 space-y-4">
         {/* Top Activity & Gamification Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-4 py-2.5 shadow-none">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-4 py-2.5">
           <div className="flex items-center gap-3 text-xs font-mono">
             {/* Interactive Streak Button */}
             <button
@@ -650,24 +657,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           <div ref={videoRef} data-vjs-player />
         </div>
 
-        {/* Shadowing Engine Configuration Bar: Wait Mode + Subtitle Sync + Blind Mode */}
+        {/* Shadowing Engine Configuration Bar: Subtitle Sync + Blind Mode */}
         <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Wait Mode Selector */}
-            <WaitModeSelector
-              currentMode={waitMode}
-              onSelectMode={setWaitMode}
-            />
-
-            <div className="h-4 w-[1px] bg-[#3A3A3A] hidden sm:block" />
-
-            {/* Subtitle Sync Controller (Affects transcript only) */}
-            <SubtitleSyncControl
-              offsetMs={subtitleOffsetMs}
-              onAdjustOffset={adjustSubtitleOffset}
-              onResetOffset={resetSubtitleOffset}
-            />
-          </div>
+          {/* Subtitle Sync Controller */}
+          <SubtitleSyncControl
+            offsetMs={subtitleOffsetMs}
+            onAdjustOffset={(delta) => setSubtitleOffsetMs((v) => v + delta)}
+            onResetOffset={() => setSubtitleOffsetMs(0)}
+          />
 
           {/* Blind Mode Toggle (Ear Training) */}
           <div className="flex items-center gap-1.5">
@@ -709,22 +706,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             <button
               onClick={togglePlayPause}
               className="p-2 sm:px-3.5 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
-              title={
-                playbackState === "waiting" || playbackState === "manual-paused"
-                  ? "Advance to Next Line (Space)"
-                  : isVideoPlaying
-                  ? "Pause (Space)"
-                  : "Play (Space)"
-              }
+              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
             >
-              {isVideoPlaying ? <Pause size={14} /> : <Play size={14} />}
-              <span className="hidden sm:inline">
-                {playbackState === "waiting" || playbackState === "manual-paused"
-                  ? "Continue"
-                  : isVideoPlaying
-                  ? "Pause"
-                  : "Play"}
-              </span>
+              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+              <span className="hidden sm:inline">{isPlaying ? "Pause" : "Play"}</span>
             </button>
 
             {/* Replay Current Sentence (R) */}
@@ -753,7 +738,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
             {/* Single Sentence Loop Toggle (L) */}
             <button
-              onClick={toggleLoop}
+              onClick={() => setIsLooping((v) => !v)}
               className={`px-3 py-2 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
                 isLooping
                   ? "bg-[#3B5998] border-[#3B5998] text-[#E9E1D4] font-bold"
@@ -786,7 +771,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
 
-        {/* Active Shadowing Sentence Focus Card (Zero layout shift / Persistent height) */}
+        {/* Active Shadowing Sentence Focus Card */}
         {transcript.length > 0 && currentSentence && (
           <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-5 transition-all">
             <div className="flex items-center justify-between mb-3">
@@ -841,76 +826,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </button>
               </div>
             </div>
-
-            {/* Wait Mode / Manual Paused Status Prompt Banners */}
-            {playbackState === "waiting" && (
-              <div className="mb-4 p-3 rounded-sm bg-[#2E2E2E] border border-[#B5A642] flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#B5A642] animate-pulse" />
-                  <span className="text-xs font-mono font-bold text-[#B5A642] uppercase tracking-wider">
-                    REPEAT OUT LOUD:
-                  </span>
-                  <span className="text-xs font-mono text-[#E9E1D4]">
-                    {(waitRemainingMs / 1000).toFixed(1)}s remaining ({waitMode})
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleNextLine}
-                    className="px-3 py-1.5 rounded-sm bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A] text-xs font-mono font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Advance to next sentence now (Space / Enter)"
-                  >
-                    <span>Next Line</span>
-                    <SkipForward size={12} />
-                    <kbd className="text-[10px] bg-[#1F132A]/20 px-1 rounded-sm">Space</kbd>
-                  </button>
-
-                  <button
-                    onClick={handleReplayCurrent}
-                    className="px-2.5 py-1.5 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Replay this sentence (R)"
-                  >
-                    <RotateCcw size={12} />
-                    <span>Replay</span>
-                    <kbd className="text-[10px] bg-[#2E2E2E] px-1 rounded-sm text-[#B5A642]">R</kbd>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {playbackState === "manual-paused" && (
-              <div className="mb-4 p-3 rounded-sm bg-[#2E2E2E] border border-[#B5A642] flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#B5A642]" />
-                  <span className="text-xs font-mono font-bold text-[#B5A642] uppercase tracking-wider">
-                    PAUSED — REPEAT AT YOUR OWN PACE
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleNextLine}
-                    className="px-3 py-1.5 rounded-sm bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A] text-xs font-mono font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Continue to next sentence (Space / Enter)"
-                  >
-                    <span>Next Line</span>
-                    <SkipForward size={12} />
-                    <kbd className="text-[10px] bg-[#1F132A]/20 px-1 rounded-sm">Space</kbd>
-                  </button>
-
-                  <button
-                    onClick={handleReplayCurrent}
-                    className="px-2.5 py-1.5 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer"
-                    title="Replay this sentence (R)"
-                  >
-                    <RotateCcw size={12} />
-                    <span>Replay</span>
-                    <kbd className="text-[10px] bg-[#2E2E2E] px-1 rounded-sm text-[#B5A642]">R</kbd>
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Large Typography Sentence (with Blind Mode blur support) */}
             <div

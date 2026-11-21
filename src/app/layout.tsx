@@ -15,15 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="antialiased bg-[#13111C] bg-mesh text-[#DCDCE0] min-h-screen font-sans selection:bg-[#853BCE]/30 selection:text-white">
+      <body className="antialiased bg-[#2E2E2E] text-[#E9E1D4] min-h-screen font-mono selection:bg-[#B5A642] selection:text-[#1F132A]">
         <AuthProvider>
           <Nav />
           {children}
