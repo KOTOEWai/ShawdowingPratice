@@ -81,6 +81,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const autoPauseAtEndRef = useRef<boolean>(true);
   autoPauseAtEndRef.current = autoPauseAtEnd;
   const lastPausedIdxRef = useRef<number | null>(null);
+  const seekingTargetIdxRef = useRef<number | null>(null);
   const [isPausedAtSentenceEnd, setIsPausedAtSentenceEnd] = useState<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -239,9 +240,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     if (playerRef.current) {
       lastPausedIdxRef.current = null;
       setIsPausedAtSentenceEnd(false);
-      const targetSec = Math.max(0, (offset - 30) / 1000);
-      playerRef.current.currentTime(targetSec);
-      playerRef.current.play();
 
       const resolvedIdx =
         typeof explicitIndex === "number"
@@ -249,10 +247,16 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
 
       if (resolvedIdx >= 0) {
+        seekingTargetIdxRef.current = resolvedIdx;
         activeIndexRef.current = resolvedIdx;
         setActiveIndex(resolvedIdx);
         setFocusedIndex(resolvedIdx);
       }
+
+      // Seek directly to the exact sentence start offset
+      const targetSec = Math.max(0, offset / 1000);
+      playerRef.current.currentTime(targetSec);
+      playerRef.current.play();
     }
   }, []);
 
@@ -314,13 +318,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
       const curIdx = activeIndexRef.current;
 
+      // While seeking to a new line, wait until currentTime reaches target line
+      if (seekingTargetIdxRef.current !== null) {
+        const targetLine = items[seekingTargetIdxRef.current];
+        if (targetLine && rawCurrentMs >= targetLine.offset - 50) {
+          seekingTargetIdxRef.current = null;
+        } else {
+          return;
+        }
+      }
+
       // Handle Single Sentence Loop Mode
       if (isLoopingRef.current && curIdx !== -1) {
         const currentItem = items[curIdx];
         if (currentItem) {
           const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
           const endMs = currentItem.offset + duration;
-          const startSec = Math.max(0, (currentItem.offset - 50) / 1000);
+          const startSec = Math.max(0, currentItem.offset / 1000);
 
           if (rawCurrentMs >= endMs) {
             player.currentTime(startSec);
@@ -336,18 +350,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
           const rawEnd = currentItem.offset + duration;
           const nextItem = items[curIdx + 1];
-          // Determine strict pause boundary:
-          // Stop BEFORE nextItem begins (at least 60ms before next sentence starts)
-          // so the user never hears a single sound of the next sentence!
+          // Stop at sentence end or before next item starts
           const pauseTargetMs =
             nextItem && nextItem.offset > currentItem.offset
-              ? Math.min(rawEnd, nextItem.offset - 60)
+              ? Math.min(rawEnd, nextItem.offset - 30)
               : rawEnd;
 
           if (rawCurrentMs >= pauseTargetMs && lastPausedIdxRef.current !== curIdx) {
             lastPausedIdxRef.current = curIdx;
             player.pause();
-            player.currentTime(Math.max(0, (pauseTargetMs - 30) / 1000));
             setIsPausedAtSentenceEnd(true);
             // Ensure activeIndex is locked on curIdx
             activeIndexRef.current = curIdx;
@@ -478,6 +489,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         handleNextLine();
         return;
       }
+      lastPausedIdxRef.current = null;
+      setIsPausedAtSentenceEnd(false);
       playerRef.current.play();
     } else {
       playerRef.current.pause();
