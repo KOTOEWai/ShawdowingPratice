@@ -942,7 +942,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               >
                 <p className="text-base sm:text-xl text-[#E9E1D4] leading-relaxed font-normal select-text">
                   {currentSentence.text.split(" ").map((word, wIdx) => (
-                    <WordWithMeaning key={wIdx} word={word} />
+                    <WordWithMeaning
+                      key={wIdx}
+                      word={word}
+                      contextSentence={currentSentence.text}
+                      lessonId={id}
+                    />
                   ))}
                 </p>
               </div>
@@ -964,6 +969,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               {/* Local A/B Voice Comparison Widget */}
               <AudioComparison
                 sentenceText={currentSentence.text}
+                lessonId={id}
+                sentenceIndex={displayIndex}
                 onPlayNative={() => handleSeek(currentSentence.offset, displayIndex)}
                 onMasteredToggle={() => toggleMastered(displayIndex)}
                 isMastered={masteredIndices.has(displayIndex)}

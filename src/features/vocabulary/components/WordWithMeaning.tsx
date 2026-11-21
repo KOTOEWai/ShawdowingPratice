@@ -1,17 +1,27 @@
 "use client";
 
-import { DictionaryEntry } from "../types";
+import { DictionaryEntry, SavedWord } from "../types";
 import React, { useState, useEffect, useRef } from "react";
 import PopoverContent from "../context/PopoverContext";
 
-const getCleanWord = (word: string) => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").toLowerCase();
+const getCleanWord = (word: string) => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()"]/g, "").toLowerCase();
 
-const getSavedWords = (): DictionaryEntry[] => {
+const getSavedWords = (): SavedWord[] => {
   if (typeof window === "undefined") return [];
-  return JSON.parse(localStorage.getItem("vocabulary") || "[]");
+  try {
+    return JSON.parse(localStorage.getItem("vocabulary") || "[]");
+  } catch {
+    return [];
+  }
 };
 
-export default function WordWithMeaning({ word }: { word: string }) {
+interface WordWithMeaningProps {
+  word: string;
+  contextSentence?: string;
+  lessonId?: string;
+}
+
+export default function WordWithMeaning({ word, contextSentence, lessonId }: WordWithMeaningProps) {
   const [data, setData] = useState<DictionaryEntry | null>(null);
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,7 +34,7 @@ export default function WordWithMeaning({ word }: { word: string }) {
   // Check if word is already saved in vocabulary
   useEffect(() => {
     if (show) {
-      const exists = getSavedWords().some((item) => item.word === cleanWord);
+      const exists = getSavedWords().some((item) => item.word.toLowerCase() === cleanWord.toLowerCase());
       setIsSaved(exists);
     }
   }, [show, cleanWord]);
@@ -42,31 +52,38 @@ export default function WordWithMeaning({ word }: { word: string }) {
     try {
       const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`);
       const result = await res.json();
-      if (Array.isArray(result)) setData(result[0]);
+      if (Array.isArray(result) && result.length > 0) {
+        setData(result[0]);
+      }
     } catch (err) {
-      console.error("Lookup failed", err);
+      console.error("Dictionary lookup failed:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Vocabulary Save/Delete Logic
+  // Vocabulary Save/Delete Logic with 1-Click Context & SRS metadata
   const toggleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
     const savedWords = getSavedWords();
-    let updatedList;
+    let updatedList: SavedWord[];
+
     if (isSaved) {
-      updatedList = savedWords.filter((item) => item.word !== cleanWord);
+      updatedList = savedWords.filter((item) => item.word.toLowerCase() !== cleanWord.toLowerCase());
     } else {
-      updatedList = [
-        ...savedWords,
-        {
-          word: cleanWord,
-          definition: data?.meanings[0]?.definitions[0]?.definition,
-          phonetic: data?.phonetic || data?.phonetics?.[0]?.text,
-          addedAt: new Date().toISOString(),
-        },
-      ];
+      const newEntry: SavedWord = {
+        word: cleanWord,
+        definition: data?.meanings[0]?.definitions[0]?.definition || "Saved from dialogue",
+        phonetic: data?.phonetic || data?.phonetics?.find((p) => p.text)?.text || "",
+        addedAt: new Date().toISOString(),
+        contextSentence: contextSentence || undefined,
+        lessonId: lessonId || undefined,
+        intervalDays: 1,
+        nextReviewDate: new Date().toISOString(),
+        reviewCount: 0,
+        easeFactor: 2.5,
+      };
+      updatedList = [...savedWords, newEntry];
     }
 
     localStorage.setItem("vocabulary", JSON.stringify(updatedList));
@@ -90,9 +107,12 @@ export default function WordWithMeaning({ word }: { word: string }) {
     <span className="relative inline-block mx-0.5" ref={containerRef}>
       <span
         onClick={handleLookup}
-        className={`cursor-pointer hover:text-[#A667E4] transition-colors border-b border-dotted ${
-          show ? "text-[#A667E4] border-[#853BCE]" : "border-[#33323E]"
+        className={`cursor-pointer transition-colors border-b border-dotted ${
+          show
+            ? "text-[#B5A642] border-[#B5A642] font-semibold"
+            : "border-[#7A7A7A]/50 hover:text-[#B5A642] hover:border-[#B5A642]"
         }`}
+        title="Click for dictionary definition & 1-click SRS save"
       >
         {word}
       </span>
@@ -105,6 +125,7 @@ export default function WordWithMeaning({ word }: { word: string }) {
           isSaved={isSaved}
           onSave={toggleSave}
           cleanWord={cleanWord}
+          contextSentence={contextSentence}
         />
       )}
     </span>

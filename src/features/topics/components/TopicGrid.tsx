@@ -25,45 +25,53 @@ export default function Topic({ videos }: { videos: VideoItem[] }) {
   return (
     <div>
       <div className="max-w-7xl mx-auto">
-        {/* Video Grid */}
         <motion.div
           className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          {videos?.map((video, index) => (
-            <motion.div
-              key={video.id?.videoId || index}
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="group cursor-pointer"
-            >
-              <Link href={`/lessons/shadowing/${video.snippet.resourceId.videoId}`}>
-                {/* Thumbnail Container */}
-                <div className="relative aspect-video rounded-xl overflow-hidden border border-[#33323E] bg-[#1F132A] shadow-xl group-hover:border-[#853BCE]/50 transition-all">
-                  <Image
-                    src={video.snippet.thumbnails.high.url}
-                    alt={video.snippet.title}
-                    width={320}
-                    height={180}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+          {videos?.map((video, index) => {
+            const videoId = video.snippet?.resourceId?.videoId || video.id?.videoId;
+            return (
+              <motion.div
+                key={videoId || index}
+                variants={itemVariants}
+                whileHover={{ y: -3 }}
+                className="group cursor-pointer"
+              >
+                <Link href={`/lessons/shadowing/${videoId}`}>
+                  {/* Thumbnail Container */}
+                  <div className="relative aspect-video rounded-md overflow-hidden border border-[#3A3A3A] bg-[#1F132A] group-hover:border-[#B5A642] transition-all">
+                    {video.snippet?.thumbnails?.high?.url ? (
+                      <Image
+                        src={video.snippet.thumbnails.high.url}
+                        alt={video.snippet.title}
+                        width={320}
+                        height={180}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-[#2E2E2E] flex items-center justify-center text-[#7A7A7A] text-xs font-mono">
+                        No Preview
+                      </div>
+                    )}
 
-                  {/* Overlay with Play Button */}
-                  <div className="absolute inset-0 bg-[#13111C]/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-xs">
-                    <div className="w-12 h-12 bg-[#853BCE] rounded-full flex items-center justify-center shadow-lg shadow-[#853BCE]/40 transform scale-80 group-hover:scale-100 transition-all duration-300">
-                      <Play className="text-white fill-white ml-0.5" size={20} />
+                    {/* Overlay with Play Button */}
+                    <div className="absolute inset-0 bg-[#1F132A]/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="w-10 h-10 bg-[#B5A642] rounded-sm flex items-center justify-center shadow-lg">
+                        <Play className="text-[#1F132A] fill-[#1F132A] ml-0.5" size={16} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-              {/* Video Title */}
-              <h3 className="mt-3 text-[#DCDCE0] text-xs sm:text-sm font-medium line-clamp-2 leading-snug group-hover:text-[#A667E4] transition-colors">
-                {video.snippet.title}
-              </h3>
-            </motion.div>
-          ))}
+                </Link>
+                {/* Video Title */}
+                <h3 className="mt-2.5 text-[#E9E1D4] text-xs font-mono font-bold line-clamp-2 leading-snug group-hover:text-[#B5A642] transition-colors">
+                  {video.snippet?.title}
+                </h3>
+              </motion.div>
+            );
+          })}
         </motion.div>
       </div>
     </div>

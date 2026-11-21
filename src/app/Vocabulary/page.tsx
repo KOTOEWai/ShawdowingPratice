@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, FileSpreadsheet, Layers, Trash2 } from "lucide-react";
+import { Download, FileSpreadsheet, Layers, Trash2, Volume2, BookOpen, Sparkles, ExternalLink } from "lucide-react";
 import { SavedWord } from "@/features/vocabulary";
 
 export default function VocabularyPage() {
@@ -18,33 +18,42 @@ export default function VocabularyPage() {
   };
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("vocabulary") || "[]");
-    setVocabList(
-      saved.sort(
-        (a: SavedWord, b: SavedWord) =>
-          new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
-      )
-    );
+    try {
+      const saved = JSON.parse(localStorage.getItem("vocabulary") || "[]");
+      setVocabList(
+        saved.sort(
+          (a: SavedWord, b: SavedWord) =>
+            new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+        )
+      );
+    } catch {
+      setVocabList([]);
+    }
   }, []);
 
   const removeWord = (word: string) => {
-    const updated = vocabList.filter((item) => item.word !== word);
+    const updated = vocabList.filter((item) => item.word.toLowerCase() !== word.toLowerCase());
     localStorage.setItem("vocabulary", JSON.stringify(updated));
     setVocabList(updated);
   };
 
   const playAudio = (word: string) => {
-    const audio = new Audio(`https://api.dictionaryapi.dev/media/pronunciations/en/${word}-us.mp3`);
-    audio.play().catch(() => alert("Audio not available"));
+    if (typeof window !== "undefined") {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = "en-US";
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   const exportToCSV = () => {
     if (vocabList.length === 0) return;
-    const header = ["Word", "Phonetic", "Definition", "Date Added"];
+    const header = ["Word", "Phonetic", "Definition", "Context Sentence", "Date Added"];
     const rows = vocabList.map((item) => [
       `"${item.word.replace(/"/g, '""')}"`,
       `"${(item.phonetic || "").replace(/"/g, '""')}"`,
       `"${(item.definition || "").replace(/"/g, '""')}"`,
+      `"${(item.contextSentence || "").replace(/"/g, '""')}"`,
       `"${item.addedAt}"`,
     ]);
     const csvContent = [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -62,7 +71,7 @@ export default function VocabularyPage() {
   const exportToAnki = () => {
     if (vocabList.length === 0) return;
     const rows = vocabList.map(
-      (item) => `${item.word} ${item.phonetic || ""}\t${item.definition || ""}`
+      (item) => `${item.word} ${item.phonetic || ""}\t${item.definition || ""}${item.contextSentence ? `\nExample: ${item.contextSentence}` : ""}`
     );
     const ankiContent = rows.join("\n");
     const blob = new Blob([ankiContent], { type: "text/plain;charset=utf-8;" });
@@ -76,18 +85,24 @@ export default function VocabularyPage() {
     setShowExportMenu(false);
   };
 
+  const now = new Date();
+  const dueCount = vocabList.filter(
+    (item) => !item.nextReviewDate || new Date(item.nextReviewDate) <= now
+  ).length;
+
   return (
-    <div className="min-h-screen bg-[#13111C] text-[#DCDCE0] p-4 sm:p-6 md:p-12">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#2E2E2E] text-[#E9E1D4] p-4 sm:p-6 md:p-12">
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-5 mb-8 bg-[#1F132A] p-5 rounded-xl border border-[#33323E]">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-5 bg-[#1F132A] p-5 rounded-md border border-[#3A3A3A]">
           {/* Left Side: Title & Counter */}
           <div>
-            <h1 className="hero-headline text-2xl lg:text-3xl font-normal text-white tracking-tight">
+            <h1 className="text-2xl lg:text-3xl font-bold font-mono text-[#E9E1D4] tracking-tight uppercase">
               My Vocabulary
             </h1>
-            <p className="text-xs sm:text-sm text-[#A1A0AB] mt-1">
-              Total: <span className="text-[#A667E4] font-mono font-medium">{vocabList.length}</span> words saved
+            <p className="text-xs sm:text-sm text-[#7A7A7A] mt-1 font-mono">
+              Total: <span className="text-[#B5A642] font-bold">{vocabList.length}</span> words saved •{" "}
+              <span className="text-[#B5A642] font-bold">{dueCount}</span> due for SRS review
             </p>
           </div>
 
@@ -98,26 +113,26 @@ export default function VocabularyPage() {
               <div className="relative">
                 <button
                   onClick={() => setShowExportMenu((v) => !v)}
-                  className="px-3.5 py-2 text-xs font-medium text-white bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 text-xs font-mono font-medium text-[#E9E1D4] bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] rounded-sm transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Download size={13} className="text-[#A667E4]" />
+                  <Download size={13} className="text-[#B5A642]" />
                   <span>Export</span>
                 </button>
 
                 {showExportMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl bg-[#181622] border border-[#33323E] shadow-2xl p-1.5 z-20 space-y-1">
+                  <div className="absolute right-0 mt-2 w-48 rounded-sm bg-[#1F132A] border border-[#3A3A3A] shadow-2xl p-1.5 z-20 space-y-1">
                     <button
                       onClick={exportToCSV}
-                      className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-[#853BCE]/20 hover:text-white text-[#DCDCE0] flex items-center gap-2 transition-colors cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xs text-xs font-mono hover:bg-[#2E2E2E] hover:text-[#B5A642] text-[#E9E1D4] flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <FileSpreadsheet size={13} className="text-[#42946E]" />
+                      <FileSpreadsheet size={13} className="text-[#6B8E23]" />
                       <span>Export as CSV</span>
                     </button>
                     <button
                       onClick={exportToAnki}
-                      className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-[#853BCE]/20 hover:text-white text-[#DCDCE0] flex items-center gap-2 transition-colors cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xs text-xs font-mono hover:bg-[#2E2E2E] hover:text-[#B5A642] text-[#E9E1D4] flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <Layers size={13} className="text-[#82AAFF]" />
+                      <Layers size={13} className="text-[#3B5998]" />
                       <span>Export for Anki (.txt)</span>
                     </button>
                   </div>
@@ -128,7 +143,7 @@ export default function VocabularyPage() {
             {vocabList.length > 0 && (
               <button
                 onClick={clearAllVocabulary}
-                className="px-3 py-2 text-xs font-medium text-rose-400 border border-rose-500/20 hover:bg-rose-900/20 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-2 text-xs font-mono font-medium text-[#8C2727] border border-[#8C2727]/30 hover:bg-[#8C2727]/20 rounded-sm transition-all cursor-pointer flex items-center gap-1.5"
                 title="Delete all saved words"
               >
                 <Trash2 size={13} />
@@ -138,82 +153,112 @@ export default function VocabularyPage() {
 
             <Link
               href="/Topics"
-              className="btn-railway-secondary px-4 py-2 text-xs sm:text-sm rounded-lg"
+              className="px-4 py-2 text-xs font-mono uppercase bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] rounded-sm transition-colors"
             >
               Practice
             </Link>
 
             <Link
               href="/Vocabulary/Flashcards"
-              className="btn-railway-primary px-4 py-2 text-xs sm:text-sm rounded-lg"
+              className="px-4 py-2 text-xs font-mono uppercase font-bold bg-[#B5A642] text-[#1F132A] hover:bg-[#B5A642]/90 rounded-sm flex items-center gap-1.5 shadow-sm transition-all"
             >
-              Flashcards
+              <Sparkles size={13} />
+              <span>SRS Flashcards ({dueCount})</span>
             </Link>
           </div>
         </div>
 
         {/* Word List */}
         {vocabList.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center bg-[#1F132A]/50 rounded-xl border border-dashed border-[#33323E] p-8">
-            <div className="text-3xl mb-3">📖</div>
-            <h3 className="text-lg font-semibold text-white mb-1.5">Your vocabulary list is empty</h3>
-            <p className="text-[#A1A0AB] text-xs sm:text-sm max-w-sm mb-6">
-              Go back to your practice videos and click on words you don&apos;t know to save them here.
+          <div className="flex flex-col items-center justify-center py-20 text-center bg-[#1F132A] rounded-md border border-dashed border-[#3A3A3A] p-8 space-y-3">
+            <BookOpen size={36} className="text-[#B5A642]" />
+            <h3 className="text-base font-bold font-mono uppercase text-[#E9E1D4]">
+              Your vocabulary list is empty
+            </h3>
+            <p className="text-[#7A7A7A] text-xs max-w-sm font-sans">
+              Click on any word in the movie shadowing subtitles to look up its definition and save it for SRS review!
             </p>
             <Link
               href="/Topics"
-              className="btn-railway-primary px-5 py-2 text-xs sm:text-sm rounded-lg"
+              className="inline-block mt-3 px-5 py-2 text-xs font-mono uppercase font-bold bg-[#B5A642] text-[#1F132A] rounded-sm"
             >
               Browse Practice Topics
             </Link>
           </div>
         ) : (
-          <div className="grid gap-3.5">
-            {vocabList.map((item) => (
-              <div
-                key={item.word}
-                className="bg-[#1F132A] border border-[#33323E] p-4 sm:p-5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#853BCE]/40 transition-all group"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2.5 mb-1">
-                    <h2 className="text-lg font-semibold text-[#A667E4] capitalize tracking-tight">
-                      {item.word}
-                    </h2>
-                    <span className="text-xs font-mono text-[#6C6B7B]">{item.phonetic}</span>
-                    <button
-                      onClick={() => playAudio(item.word)}
-                      aria-label="Listen"
-                      className="text-xs opacity-60 group-hover:opacity-100 transition-opacity cursor-pointer p-1 rounded hover:bg-[#33323E]"
+          <div className="grid gap-3">
+            {vocabList.map((item) => {
+              const isDue = !item.nextReviewDate || new Date(item.nextReviewDate) <= now;
+              return (
+                <div
+                  key={item.word}
+                  className="bg-[#1F132A] border border-[#3A3A3A] p-4 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#B5A642] transition-all group"
+                >
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-lg font-bold font-mono text-[#E9E1D4] capitalize tracking-tight">
+                        {item.word}
+                      </h2>
+                      {item.phonetic && (
+                        <span className="text-xs font-mono text-[#B5A642]">{item.phonetic}</span>
+                      )}
+                      <button
+                        onClick={() => playAudio(item.word)}
+                        aria-label="Listen"
+                        className="text-[#7A7A7A] hover:text-[#B5A642] transition-colors cursor-pointer p-1"
+                        title="Pronounce"
+                      >
+                        <Volume2 size={14} />
+                      </button>
+
+                      {/* SRS Due Badge */}
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-xs border ${
+                          isDue
+                            ? "bg-[#B5A642]/15 text-[#B5A642] border-[#B5A642]/40"
+                            : "bg-[#2E2E2E] text-[#7A7A7A] border-[#3A3A3A]"
+                        }`}
+                      >
+                        {isDue ? "SRS Due" : `In ${item.intervalDays || 1}d`}
+                      </span>
+                    </div>
+
+                    <p className="text-[#E9E1D4] text-xs leading-relaxed">
+                      {item.definition || "No definition available."}
+                    </p>
+
+                    {item.contextSentence && (
+                      <div className="pt-1.5 border-t border-[#3A3A3A]/40">
+                        <span className="text-[9px] font-mono uppercase text-[#7A7A7A]">Movie Context: </span>
+                        <span className="text-xs text-[#B5A642] italic">&quot;{item.contextSentence}&quot;</span>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-[#7A7A7A] font-mono">
+                      Added {new Date(item.addedAt).toLocaleDateString()} • Reviews: {item.reviewCount || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <a
+                      href={`https://www.google.com/search?q=define+${item.word}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 text-xs font-mono bg-[#2E2E2E] hover:bg-[#3A3A3A] border border-[#3A3A3A] text-[#E9E1D4] rounded-sm transition-colors flex items-center gap-1"
                     >
-                      🔊
+                      <span>Search</span>
+                      <ExternalLink size={11} />
+                    </a>
+                    <button
+                      onClick={() => removeWord(item.word)}
+                      className="px-3 py-1.5 text-xs font-mono bg-[#8C2727]/20 hover:bg-[#8C2727] text-red-300 hover:text-white border border-[#8C2727]/40 rounded-sm transition-colors cursor-pointer"
+                    >
+                      Delete
                     </button>
                   </div>
-                  <p className="text-[#DCDCE0] text-xs sm:text-sm leading-relaxed">
-                    {item.definition || "No definition available."}
-                  </p>
-                  <p className="text-[10px] text-[#6C6B7B] mt-2 font-mono">
-                    Added {new Date(item.addedAt).toLocaleDateString()}
-                  </p>
                 </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <a
-                    href={`https://www.google.com/search?q=define+${item.word}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 text-xs bg-[#13111C] hover:bg-[#33323E] border border-[#33323E] text-[#DCDCE0] rounded-md transition-colors"
-                  >
-                    Details ↗
-                  </a>
-                  <button
-                    onClick={() => removeWord(item.word)}
-                    className="px-3 py-1.5 text-xs bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/30 rounded-md transition-colors cursor-pointer"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

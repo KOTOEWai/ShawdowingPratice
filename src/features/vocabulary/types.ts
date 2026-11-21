@@ -19,6 +19,15 @@ export interface SavedWord {
   definition: string;
   phonetic: string;
   addedAt: string;
+  // Context sentence from video
+  contextSentence?: string;
+  lessonId?: string;
+  // Spaced Repetition System (SRS)
+  intervalDays?: number;
+  nextReviewDate?: string;
+  reviewCount?: number;
+  easeFactor?: number;
+  lastReviewedAt?: string;
 }
 
 export type PopOverProps = {
@@ -28,6 +37,7 @@ export type PopOverProps = {
   isSaved: boolean;
   onSave: (e: React.MouseEvent) => void;
   cleanWord: string;
+  contextSentence?: string;
 };
 
 export type ExternalLinkProps = {

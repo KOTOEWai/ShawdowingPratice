@@ -1,6 +1,8 @@
 "use client";
 
-import { Colors, ExternalLinkProps, PopOverProps } from "../types";
+import React from "react";
+import { Volume2, Bookmark, BookmarkCheck, ExternalLink, Sparkles } from "lucide-react";
+import { PopOverProps } from "../types";
 
 export default function PopoverContent({
   data,
@@ -9,6 +11,7 @@ export default function PopoverContent({
   isSaved,
   onSave,
   cleanWord,
+  contextSentence,
 }: PopOverProps) {
   // Browser Speech Synthesis
   const speakWord = () => {
@@ -22,8 +25,8 @@ export default function PopoverContent({
 
   const handleAudioPlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (data?.phonetics?.find((p) => p.audio)?.audio) {
-      const audioUrl = data.phonetics.find((p) => p.audio)!.audio!;
+    const audioUrl = data?.phonetics?.find((p) => p.audio && p.audio.length > 0)?.audio;
+    if (audioUrl) {
       const audio = new Audio(audioUrl);
       audio.play().catch((err) => {
         console.warn("Dictionary audio failed, falling back to speech synthesis:", err);
@@ -38,14 +41,14 @@ export default function PopoverContent({
     return (
       <div
         onClick={(e) => e.stopPropagation()}
-        className="fixed z-50 w-72 bg-[#1F132A] p-4 rounded-xl border border-[#33323E] shadow-2xl"
+        className="fixed z-50 w-72 bg-[#1F132A] p-4 rounded-md border border-[#3A3A3A] shadow-2xl"
         style={{
           bottom: `calc(100vh - ${coords.top}px + 12px)`,
           left: `${coords.left}px`,
           transform: "translateX(-50%)",
         }}
       >
-        <p className="text-xs text-[#A1A0AB] italic font-mono animate-pulse">Searching dictionary...</p>
+        <p className="text-xs text-[#B5A642] italic font-mono animate-pulse">Searching dictionary...</p>
       </div>
     );
 
@@ -54,26 +57,30 @@ export default function PopoverContent({
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="fixed z-50 w-72 bg-[#1F132A] border border-[#33323E] rounded-xl shadow-2xl p-4 animate-in fade-in zoom-in duration-200"
+      className="fixed z-50 w-80 bg-[#1F132A] border border-[#3A3A3A] rounded-md shadow-2xl p-4 text-[#E9E1D4]"
       style={{
         bottom: `calc(100vh - ${coords.top}px + 12px)`,
         left: `${coords.left}px`,
         transform: "translateX(-50%)",
       }}
     >
-      <div className="flex justify-between items-start mb-3">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-2.5">
         <div>
-          <h3 className="text-base font-bold text-white leading-none capitalize">{data.word}</h3>
-          <p className="text-[#A667E4] text-xs mt-1 font-mono">{data.phonetic}</p>
+          <h3 className="text-base font-bold font-mono text-[#E9E1D4] leading-none capitalize">
+            {data.word}
+          </h3>
+          <p className="text-[#B5A642] text-xs mt-1 font-mono">{data.phonetic || ""}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={handleAudioPlay}
             aria-label="Pronounce word"
-            className="p-1.5 bg-[#853BCE]/15 rounded-md text-[#A667E4] hover:bg-[#853BCE]/30 transition-colors cursor-pointer"
+            className="p-1.5 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm text-[#E9E1D4] hover:text-[#B5A642] hover:border-[#B5A642] transition-colors cursor-pointer"
+            title="Listen to pronunciation"
           >
-            🔊
+            <Volume2 size={13} />
           </button>
           <button
             type="button"
@@ -81,79 +88,82 @@ export default function PopoverContent({
               e.stopPropagation();
               onSave(e);
             }}
-            aria-label="Save word"
-            className={`p-1.5 rounded-md transition-all cursor-pointer ${
+            aria-label="Save word for SRS review"
+            className={`px-2 py-1 rounded-sm border text-xs font-mono font-medium flex items-center gap-1 transition-all cursor-pointer ${
               isSaved
-                ? "text-amber-400 bg-amber-400/15 scale-105"
-                : "text-[#A1A0AB] bg-[#13111C] hover:text-white"
+                ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] font-bold"
+                : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642]"
             }`}
+            title={isSaved ? "Saved to SRS Flashcards! Click to remove" : "1-Click Save to SRS Flashcards"}
           >
-            {isSaved ? "⭐" : "📝"}
+            {isSaved ? (
+              <>
+                <BookmarkCheck size={12} />
+                <span>Saved</span>
+              </>
+            ) : (
+              <>
+                <Bookmark size={12} />
+                <span>+ Save Word</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      <hr className="border-[#33323E] mb-3" />
+      <hr className="border-[#3A3A3A] my-2" />
 
-      <div className="max-h-40 overflow-y-auto pr-1 scrollbar-hide">
-        <p className="text-[#6C6B7B] text-[10px] uppercase font-mono font-semibold tracking-wider">
-          {data.meanings[0]?.partOfSpeech || "word"}
-        </p>
-        <p className="text-xs sm:text-sm text-[#DCDCE0] mt-1 leading-relaxed">
-          {data.meanings[0]?.definitions[0]?.definition}
+      {/* Definitions */}
+      <div className="max-h-44 overflow-y-auto pr-1 space-y-2 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-[#7A7A7A] text-[10px] uppercase font-mono font-bold tracking-wider">
+            {data.meanings[0]?.partOfSpeech || "Definition"}
+          </span>
+          {isSaved && (
+            <span className="text-[10px] font-mono text-[#B5A642] flex items-center gap-1">
+              <Sparkles size={10} /> SRS Active
+            </span>
+          )}
+        </div>
+
+        <p className="text-[#E9E1D4] leading-relaxed">
+          {data.meanings[0]?.definitions[0]?.definition || "No definition found."}
         </p>
 
-        {data.synonyms && data.synonyms.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-[#33323E]">
-            <p className="text-[10px] text-[#6C6B7B] uppercase font-mono font-semibold mb-2">Synonyms</p>
-            <div className="flex flex-wrap gap-1.5">
-              {data.synonyms.map((syn, i) => (
-                <span
-                  key={i}
-                  className="px-2 py-0.5 bg-[#13111C] text-[#A1A0AB] text-[11px] rounded border border-[#33323E]"
-                >
-                  {syn}
-                </span>
-              ))}
-            </div>
+        {/* Video Context Sentence */}
+        {contextSentence && (
+          <div className="mt-2 pt-2 border-t border-[#3A3A3A]/60 bg-[#2E2E2E]/60 p-2 rounded-sm">
+            <span className="text-[9px] font-mono uppercase text-[#7A7A7A] block mb-0.5">
+              Scene Context:
+            </span>
+            <p className="text-[11px] text-[#B5A642] italic leading-tight">
+              &quot;{contextSentence}&quot;
+            </p>
           </div>
         )}
       </div>
 
-      {/* External Links */}
-      <div className="pt-3 mt-3 border-t border-[#33323E] flex gap-2">
-        <ExternalLink
+      {/* Footer External Links */}
+      <div className="mt-3 pt-2 border-t border-[#3A3A3A] flex justify-between text-[10px] font-mono text-[#7A7A7A]">
+        <a
           href={`https://www.oxfordlearnersdictionaries.com/definition/english/${cleanWord}`}
-          label="Oxford"
-          color="blue"
-        />
-        <ExternalLink
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-[#B5A642] flex items-center gap-1 transition-colors"
+        >
+          <span>Oxford</span>
+          <ExternalLink size={9} />
+        </a>
+        <a
           href={`https://dictionary.cambridge.org/dictionary/english/${cleanWord}`}
-          label="Cambridge"
-          color="green"
-        />
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-[#B5A642] flex items-center gap-1 transition-colors"
+        >
+          <span>Cambridge</span>
+          <ExternalLink size={9} />
+        </a>
       </div>
-
-      {/* Arrow */}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1F132A] border-r border-b border-[#33323E] rotate-45 -mt-1.5" />
     </div>
-  );
-}
-
-function ExternalLink({ href, label, color }: ExternalLinkProps) {
-  const colors: Colors = {
-    blue: "bg-[#306EE8]/15 text-[#82AAFF] hover:bg-[#306EE8]/25 border border-[#306EE8]/30",
-    green: "bg-[#26543F] text-[#42946E] hover:bg-[#367859]/30 border border-[#367859]/40",
-  };
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className={`text-[10px] font-medium px-2 py-1 rounded transition-colors ${colors[color]}`}
-    >
-      {label} ↗
-    </a>
   );
 }

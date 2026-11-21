@@ -34,22 +34,22 @@ export default function DetailAll({ videos, title }: DetailAllProps) {
   };
 
   return (
-    <div className="bg-[#13111C] min-h-screen py-10 px-6 lg:px-20 text-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
+    <div className="bg-[#2E2E2E] min-h-screen py-8 px-4 sm:px-6 lg:px-12 text-[#E9E1D4]">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex items-center gap-4">
           <Link
             href="/Topics"
-            className="p-2 bg-[#1F132A] hover:bg-[#33323E] border border-[#33323E] rounded-lg transition-colors"
+            className="p-2 bg-[#1F132A] hover:bg-[#3A3A3A] border border-[#3A3A3A] hover:border-[#B5A642] rounded-sm text-[#E9E1D4] transition-colors"
           >
-            <MoveLeft className="text-white" size={18} />
+            <MoveLeft size={16} />
           </Link>
-          <h1 className="hero-headline text-2xl sm:text-3xl font-normal text-white">{title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold font-mono text-[#E9E1D4] uppercase">{title}</h1>
         </div>
 
-        {/* Header */}
-        <div className="mb-8 border-l-2 border-[#853BCE] pl-4">
-          <p className="text-[#A1A0AB] text-xs sm:text-sm">
-            Improve your English with {title} lessons. Shadowing practice for better fluency.
+        {/* Header note */}
+        <div className="border-l-2 border-[#B5A642] pl-3 py-1">
+          <p className="text-[#7A7A7A] text-xs font-mono">
+            Improve your English with {title} lessons. All lessons strictly structured for shadowing focus.
           </p>
         </div>
 
@@ -60,35 +60,44 @@ export default function DetailAll({ videos, title }: DetailAllProps) {
           initial="hidden"
           animate="visible"
         >
-          {videos?.map((video, index) => (
-            <motion.div
-              key={video.id?.videoId || index}
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="group cursor-pointer"
-            >
-              <Link href={`/lessons/shadowing/${video.snippet.resourceId.videoId}`}>
-                <div className="relative aspect-video rounded-xl overflow-hidden border border-[#33323E] bg-[#1F132A] group-hover:border-[#853BCE]/40 transition-all shadow-xl">
-                  <Image
-                    src={video.snippet.thumbnails.high.url}
-                    alt={video.snippet.title}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+          {videos?.map((video, index) => {
+            const videoId = video.snippet?.resourceId?.videoId || video.id?.videoId;
+            return (
+              <motion.div
+                key={videoId || index}
+                variants={itemVariants}
+                whileHover={{ y: -3 }}
+                className="group cursor-pointer"
+              >
+                <Link href={`/lessons/shadowing/${videoId}`}>
+                  <div className="relative aspect-video rounded-md overflow-hidden border border-[#3A3A3A] bg-[#1F132A] group-hover:border-[#B5A642] transition-all">
+                    {video.snippet?.thumbnails?.high?.url ? (
+                      <Image
+                        src={video.snippet.thumbnails.high.url}
+                        alt={video.snippet.title}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-[#2E2E2E] flex items-center justify-center text-[#7A7A7A] text-xs font-mono">
+                        No Preview
+                      </div>
+                    )}
 
-                  <div className="absolute inset-0 bg-[#13111C]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <div className="w-12 h-12 bg-[#853BCE] rounded-full flex items-center justify-center shadow-lg shadow-[#853BCE]/40">
-                      <Play className="text-white fill-white ml-0.5" size={18} />
+                    <div className="absolute inset-0 bg-[#1F132A]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <div className="w-10 h-10 bg-[#B5A642] rounded-sm flex items-center justify-center shadow-lg">
+                        <Play className="text-[#1F132A] fill-[#1F132A] ml-0.5" size={16} />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <h3 className="mt-3 text-[#DCDCE0] text-xs sm:text-sm font-medium line-clamp-2 group-hover:text-[#A667E4] transition-colors leading-snug">
-                  {video.snippet.title}
-                </h3>
-              </Link>
-            </motion.div>
-          ))}
+                  <h3 className="mt-2.5 text-[#E9E1D4] text-xs font-mono font-bold line-clamp-2 group-hover:text-[#B5A642] transition-colors leading-snug">
+                    {video.snippet.title}
+                  </h3>
+                </Link>
+              </motion.div>
+            );
+          })}
         </motion.div>
       </div>
     </div>

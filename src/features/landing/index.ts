@@ -1,4 +1,5 @@
 export { default as HeroSection } from "./components/HeroSection";
+export { default as SentenceOfTheDay } from "./components/SentenceOfTheDay";
 export { default as StatsBar } from "./components/StatsBar";
 export { default as HowItWorks } from "./components/HowItWorks";
 export { default as FeaturedTopics } from "./components/FeaturedTopics";
