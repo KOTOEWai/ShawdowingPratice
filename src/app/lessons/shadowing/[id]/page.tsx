@@ -900,38 +900,38 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           </div>
 
           {/* Unified, Distraction-Free Playback & Practice Toolbar */}
-          <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
-            {/* Primary Navigation Controls */}
+          <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-2.5 sm:px-3 sm:py-2 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+            {/* Primary Navigation & Playback Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Prev Line (←) */}
               <button
                 onClick={handlePrevLine}
                 disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) <= 0}
-                className="p-2 sm:px-3 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 text-xs font-mono cursor-pointer"
+                className="px-2.5 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-xs font-mono cursor-pointer"
                 title="Previous Line (←)"
               >
-                <SkipBack size={14} />
+                <SkipBack size={13} />
                 <span className="hidden sm:inline">Prev</span>
               </button>
 
               {/* Play / Pause Toggle (Space) */}
               <button
                 onClick={togglePlayPause}
-                className="p-2 sm:px-3.5 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
+                className="px-3 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
                 title={isPlaying ? "Pause (Space)" : "Play (Space)"}
               >
-                {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-                <span className="hidden sm:inline">{isPlaying ? "Pause" : "Play"}</span>
+                {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+                <span>{isPlaying ? "Pause" : "Play"}</span>
               </button>
 
               {/* Replay Current Line (R) */}
               <button
                 onClick={handleReplayCurrent}
                 disabled={transcript.length === 0}
-                className="p-2 sm:px-3.5 sm:py-2 rounded-sm bg-[#B5A642] text-[#1F132A] hover:bg-[#B5A642]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
+                className="px-2.5 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/90 hover:text-[#B5A642] hover:border-[#B5A642]/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 text-xs font-mono cursor-pointer"
                 title="Replay Current Line (R)"
               >
-                <RotateCcw size={14} />
+                <RotateCcw size={13} />
                 <span>Replay</span>
               </button>
 
@@ -939,67 +939,62 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               <button
                 onClick={handleNextLine}
                 disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
-                className={`p-2 sm:px-3 sm:py-2 rounded-sm border transition-all flex items-center gap-1.5 text-xs font-mono cursor-pointer ${
+                className={`px-3 py-1.5 rounded-sm border transition-all flex items-center gap-1.5 text-xs font-mono cursor-pointer ${
                   isPausedAtSentenceEnd
-                    ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] font-bold animate-pulse shadow-md"
+                    ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] font-bold shadow-md"
                     : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed"
                 }`}
                 title="Next Line (→ / Enter)"
               >
-                <span className="hidden sm:inline">Next</span>
-                <SkipForward size={14} />
+                <span>Next</span>
+                <SkipForward size={13} />
               </button>
+            </div>
 
-              <div className="h-5 w-[1px] bg-[#3A3A3A] mx-0.5" />
+            {/* Practice Modes & Utility Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Step Mode (Pause at sentence end until user clicks Next) */}
+              <button
+                onClick={toggleAutoPause}
+                className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  autoPauseAtEnd
+                    ? "bg-[#B5A642]/10 border-[#B5A642]/40 text-[#B5A642]"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
+                }`}
+                title="Step Mode: Auto-pause after each sentence for shadowing (P)"
+              >
+                <PauseCircle size={13} />
+                <span className="hidden sm:inline">Step Mode</span>
+                <span className="sm:hidden">Step</span>
+                {autoPauseAtEnd && <span className="w-1.5 h-1.5 rounded-full bg-[#B5A642]" />}
+              </button>
 
               {/* Single Sentence Loop (L) */}
               <button
                 onClick={() => setIsLooping((v) => !v)}
-                className={`px-2.5 py-2 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
                   isLooping
-                    ? "bg-[#3B5998] border-[#3B5998] text-[#E9E1D4] font-bold"
-                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
+                    ? "bg-[#3B5998]/15 border-[#3B5998]/40 text-[#8BA2D0]"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
                 }`}
-                title="Loop current sentence (L)"
+                title="Single Sentence Loop (L)"
               >
                 <Repeat size={13} className={isLooping ? "animate-spin" : ""} />
-                <span>Loop {isLooping ? "ON" : "OFF"}</span>
+                <span className="hidden sm:inline">Loop</span>
+                {isLooping && <span className="w-1.5 h-1.5 rounded-full bg-[#8BA2D0]" />}
               </button>
 
-              {/* Step Mode (Pause at sentence end until user clicks Next) */}
+              <div className="h-4 w-[1px] bg-[#3A3A3A] mx-0.5 hidden sm:block" />
+
+              {/* Playback Speed (Click to cycle speeds) */}
               <button
-                onClick={toggleAutoPause}
-                className={`px-2.5 py-2 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  autoPauseAtEnd
-                    ? "bg-[#B5A642] border-[#B5A642] text-[#1F132A] font-bold"
-                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
-                }`}
-                title="Step Mode: Automatically pause at sentence end until you click Next (P)"
+                onClick={cycleSpeed}
+                className="px-2 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642]/50 text-xs font-mono text-[#E9E1D4] hover:text-[#B5A642] transition-colors flex items-center gap-1 cursor-pointer"
+                title={`Playback Speed: ${playbackRate}x (Click to cycle: 0.75x, 1x, 1.25x, 1.5x)`}
               >
-                <PauseCircle size={13} />
-                <span>Step Mode {autoPauseAtEnd ? "ON" : "OFF"}</span>
+                <Gauge size={12} className="text-[#7A7A7A]" />
+                <span className="font-bold text-[11px]">{playbackRate}x</span>
               </button>
-            </div>
-
-            {/* Essential Practice Modifiers (Speed, Sync, Blind Mode) */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Speed Presets */}
-              <div className="flex items-center gap-0.5 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm p-0.5">
-                {[0.75, 1, 1.25, 1.5].map((speed) => (
-                  <button
-                    key={speed}
-                    onClick={() => handleSpeedPreset(speed)}
-                    className={`px-1.5 py-1 rounded-sm text-[11px] font-mono transition-colors cursor-pointer ${
-                      playbackRate === speed
-                        ? "bg-[#B5A642] text-[#1F132A] font-bold"
-                        : "text-[#E9E1D4]/70 hover:text-[#E9E1D4]"
-                    }`}
-                    title={`Playback Speed: ${speed}x`}
-                  >
-                    {speed}x
-                  </button>
-                ))}
-              </div>
 
               {/* Subtitle Sync */}
               <SubtitleSyncControl
@@ -1015,14 +1010,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   setIsBlindMode((prev) => !prev);
                   setPeekBlind(false);
                 }}
-                className={`p-1.5 rounded-sm border transition-colors cursor-pointer flex items-center gap-1 text-xs font-mono ${
+                className={`px-2 py-1.5 rounded-sm border transition-colors cursor-pointer flex items-center gap-1 text-xs font-mono ${
                   isBlindMode
-                    ? "bg-[#8C2727] text-[#E9E1D4] border-[#8C2727] font-bold"
-                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
+                    ? "bg-[#8C2727]/15 text-[#E9E1D4] border-[#8C2727]/50 font-bold"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
                 }`}
                 title="Blind Mode (Blurs transcript for ear training)"
               >
-                {isBlindMode ? <EyeOff size={13} /> : <Eye size={13} />}
+                {isBlindMode ? <EyeOff size={12} className="text-[#8C2727]" /> : <Eye size={12} />}
                 <span className="hidden sm:inline">Blind</span>
               </button>
             </div>
@@ -1105,32 +1100,28 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </p>
               </div>
 
-              {/* Step Mode: Sentence Paused for Shadowing Notification Banner */}
+              {/* Step Mode: Sentence Paused for Shadowing Notification Hint */}
               {isPausedAtSentenceEnd && (
-                <div className="mt-3 px-3 py-2 bg-[#2E2E2E] border-l-2 border-[#B5A642] rounded-xs flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#E9E1D4]">
+                <div className="mt-3 px-3 py-2 bg-[#2E2E2E]/80 border-l-2 border-[#B5A642] rounded-xs flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#E9E1D4]">
                   <div className="flex items-center gap-2">
-                    <PauseCircle size={14} className="text-[#B5A642] shrink-0" />
-                    <span className="font-bold text-[#B5A642]">Sentence Paused:</span>
-                    <span className="text-[#E9E1D4]/80 text-[11px]">Ready for shadowing practice!</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B5A642] animate-pulse shrink-0" />
+                    <span className="text-[#B5A642] font-bold">Shadowing Pause:</span>
+                    <span className="text-[#E9E1D4]/80 text-[11px]">Speak aloud now!</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="text-[11px] text-[#7A7A7A] flex items-center gap-2">
                     <button
                       onClick={handleReplayCurrent}
-                      className="px-2 py-1 bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] rounded-xs text-[11px] text-[#E9E1D4] hover:text-[#B5A642] transition-colors cursor-pointer flex items-center gap-1"
-                      title="Replay this sentence"
+                      className="text-[#E9E1D4]/70 hover:text-[#B5A642] transition-colors flex items-center gap-1 cursor-pointer mr-2"
+                      title="Replay this sentence (R)"
                     >
                       <RotateCcw size={11} />
                       <span>Replay (R)</span>
                     </button>
-                    <button
-                      onClick={handleNextLine}
-                      disabled={displayIndex >= transcript.length - 1}
-                      className="px-2.5 py-1 bg-[#B5A642] text-[#1F132A] font-bold rounded-xs text-[11px] hover:bg-[#B5A642]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
-                      title="Play next sentence"
-                    >
-                      <span>Next Line (→ / Enter)</span>
-                      <SkipForward size={11} />
-                    </button>
+                    <span>Press</span>
+                    <kbd className="bg-[#1F132A] border border-[#3A3A3A] px-1 py-0.5 rounded-xs text-[#B5A642] font-bold text-[10px]">
+                      Enter
+                    </kbd>
+                    <span>or click Next</span>
                   </div>
                 </div>
               )}
