@@ -529,7 +529,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const currentSentence = transcript[displayIndex] || transcript[0];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6 bg-[#2E2E2E] min-h-screen text-[#E9E1D4]">
+    <div className="bg-[#2E2E2E] min-h-screen text-[#E9E1D4]">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6">
       {/* Keyboard Shortcuts Modal */}
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
@@ -653,7 +654,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         </div>
 
         {/* Video Player */}
-        <div className="relative aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black">
+        <div className="relative w-full max-w-[620px] mx-auto aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black shadow-md">
           <div ref={videoRef} data-vjs-player />
         </div>
 
@@ -1011,5 +1012,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         </div>
       </div>
     </div>
+  </div>
   );
 }
