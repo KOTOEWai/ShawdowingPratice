@@ -76,6 +76,7 @@ export default function DetailAll({ videos, title }: DetailAllProps) {
                         src={video.snippet.thumbnails.high.url}
                         alt={video.snippet.title}
                         fill
+                        unoptimized
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (

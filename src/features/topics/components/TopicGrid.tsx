@@ -49,6 +49,7 @@ export default function Topic({ videos }: { videos: VideoItem[] }) {
                         alt={video.snippet.title}
                         width={320}
                         height={180}
+                        unoptimized
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (

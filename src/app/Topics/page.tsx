@@ -1,4 +1,4 @@
-import { fetchFromPlaylist, TopicView, CURATED_MOVIES } from "@/features/topics";
+import { fetchFromPlaylist, TopicView } from "@/features/topics";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,6 @@ export default async function Page() {
       dailyVideos={dailyconversationsVideos}
       business={business}
       ielts={ielts}
-      curatedMovies={CURATED_MOVIES}
     />
   );
 }

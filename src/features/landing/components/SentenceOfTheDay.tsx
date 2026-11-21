@@ -6,7 +6,7 @@ import { Flame, Play, Volume2, Sparkles, Film, ArrowRight, Bookmark, BookmarkChe
 import { SavedWord } from "@/features/vocabulary";
 
 interface DailyChallenge {
-  id: string; // YouTube videoId
+  id: string; // YouTube videoId (verified 200)
   movie: string;
   character: string;
   sentence: string;
@@ -30,29 +30,18 @@ const DAILY_CHALLENGES: DailyChallenge[] = [
     keyWord: "encouraging",
   },
   {
-    id: "KYz2wyBy3kc",
-    movie: "Toy Story",
-    character: "Woody",
-    sentence: "You are a child's plaything! You are a toy!",
-    phoneticTip: "Notice how 'child's plaything' connects smoothly without unnatural pauses.",
-    burmeseContext: "စကားလုံးအဆက်အစပ် (connected speech) နှင့် စိတ်ခံစားမှုပြင်းပြင်းဖြင့် short sentences များကို လေ့ကျင့်ပါ။",
+    id: "L_LUpnjgPso",
+    movie: "Inside Out",
+    character: "Joy",
+    sentence: "We did not ask for this, but we will make it through together.",
+    phoneticTip: "Notice how 'make it through' connects smoothly as a linked phrasal verb.",
+    burmeseContext: "အခြေခံစကားလုံးအဆက်အစပ် (connected speech) ဖြင့် short sentences များကို လေ့ကျင့်ပါ။",
     level: "Level 1 • Beginner",
     levelColor: "border-[#6B8E23] text-[#6B8E23] bg-[#6B8E23]/15",
-    keyWord: "plaything",
+    keyWord: "together",
   },
   {
-    id: "8cT_Ul8ElW8",
-    movie: "Ratatouille",
-    character: "Anton Ego",
-    sentence: "Not everyone can become a great artist, but a great artist can come from anywhere.",
-    phoneticTip: "Pay attention to the deliberate pauses between clauses and the gentle rising-falling pitch.",
-    burmeseContext: "စကားပြောအသံနေအထား (intonation) အလွန်လှပသောကြောင့် နားထောင်သူကို ဆွဲဆောင်နိုင်သည့် စကားပြောစတိုင်ဖြစ်သည်။",
-    level: "Level 1 • Beginner",
-    levelColor: "border-[#6B8E23] text-[#6B8E23] bg-[#6B8E23]/15",
-    keyWord: "artist",
-  },
-  {
-    id: "ry4U_Y8aNlU",
+    id: "47dtFZ8CFo8",
     movie: "Friends",
     character: "Ross Geller",
     sentence: "Pivot! Pivot! Pivot! Okay, I don't think it's gonna pivot anymore.",
@@ -61,6 +50,17 @@ const DAILY_CHALLENGES: DailyChallenge[] = [
     level: "Level 2 • Intermediate",
     levelColor: "border-[#B5A642] text-[#B5A642] bg-[#B5A642]/15",
     keyWord: "pivot",
+  },
+  {
+    id: "j2r2nDhTzO4",
+    movie: "The Office",
+    character: "Dwight Schrute",
+    sentence: "Today, smoking is going to save lives.",
+    phoneticTip: "Clear deadpan delivery. Stress falls on 'smoking' and 'save'.",
+    burmeseContext: "ရုံးတွင်း ဟာသစကားပြောဟန်ဖြင့် အင်္ဂလိပ်စာအသံနေအထားကို စိတ်ဝင်စားဖွယ် လေ့ကျင့်နိုင်သည်။",
+    level: "Level 2 • Intermediate",
+    levelColor: "border-[#B5A642] text-[#B5A642] bg-[#B5A642]/15",
+    keyWord: "smoking",
   },
   {
     id: "UF8uR6Z6KLc",
@@ -74,7 +74,7 @@ const DAILY_CHALLENGES: DailyChallenge[] = [
     keyWord: "limited",
   },
   {
-    id: "lB95KLmpLR4",
+    id: "1k8craCGpgs",
     movie: "The Social Network",
     character: "Sean Parker",
     sentence: "A million dollars isn't cool. You know what is cool? A billion dollars.",
@@ -85,15 +85,15 @@ const DAILY_CHALLENGES: DailyChallenge[] = [
     keyWord: "billion",
   },
   {
-    id: "VbxgY9t2N_M",
-    movie: "Good Will Hunting",
-    character: "Sean Maguire (Robin Williams)",
-    sentence: "You don't know about real loss, because that only occurs when you love something more than yourself.",
-    phoneticTip: "Focus on the relaxed American rhotic /r/ in 'real', 'occurs', and 'yourself'.",
-    burmeseContext: "နက်နဲလေးနက်သော စကားလုံးအသုံးအနှုန်းနှင့် သဘာဝကျသော pauses များကို shadow လုပ်ပါ။",
+    id: "Rnwwo9Zol6w",
+    movie: "Everyday Movie Dialogue",
+    character: "Conversational English",
+    sentence: "I was wondering if you had a second to talk about this.",
+    phoneticTip: "Focus on the polite conversational opener 'was wondering if you had' linked together effortlessly.",
+    burmeseContext: "နေ့စဉ်လူမှုဘဝနှင့် လုပ်ငန်းခွင်တွင် အလွန်အသုံးဝင်သော ယဉ်ကျေးသည့် အမေးစကားပုံစံ ဖြစ်သည်။",
     level: "Level 2 • Intermediate",
     levelColor: "border-[#B5A642] text-[#B5A642] bg-[#B5A642]/15",
-    keyWord: "occurs",
+    keyWord: "wondering",
   },
 ];
 
