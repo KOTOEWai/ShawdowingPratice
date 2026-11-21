@@ -170,16 +170,64 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
    * Seek with pre-roll buffer (150ms lead-in) so speech starts naturally.
    */
   const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
+    // Cleanly cancel any running countdown so any newly selected sentence starts fresh
+    if (echoIntervalRef.current) {
+      clearInterval(echoIntervalRef.current);
+      echoIntervalRef.current = null;
+    }
+    setEchoCountdown(null);
+    isEchoPausingRef.current = false;
+
     if (playerRef.current) {
       const targetSec = Math.max(0, (offset - 150) / 1000);
       playerRef.current.currentTime(targetSec);
       playerRef.current.play();
 
-      if (typeof explicitIndex === "number") {
-        setActiveIndex(explicitIndex);
+      const resolvedIdx =
+        typeof explicitIndex === "number"
+          ? explicitIndex
+          : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
+
+      if (resolvedIdx >= 0) {
+        activeIndexRef.current = resolvedIdx;
+        setActiveIndex(resolvedIdx);
+        setFocusedIndex(resolvedIdx);
       }
     }
   }, []);
+
+  // Start or Restart Echo Countdown from the beginning (5s, 10s, 15s)
+  const startEchoCountdown = useCallback((durationSec?: number) => {
+    if (echoIntervalRef.current) {
+      clearInterval(echoIntervalRef.current);
+      echoIntervalRef.current = null;
+    }
+    const sec = durationSec || echoDurationRef.current || 10;
+    isEchoPausingRef.current = true;
+    if (playerRef.current && !playerRef.current.paused()) {
+      playerRef.current.pause();
+    }
+    setEchoCountdown(sec);
+
+    let count = sec;
+    echoIntervalRef.current = setInterval(() => {
+      count -= 1;
+      if (count > 0) {
+        setEchoCountdown(count);
+      } else {
+        if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
+        echoIntervalRef.current = null;
+        setEchoCountdown(null);
+        isEchoPausingRef.current = false;
+        const nextIdx = activeIndexRef.current + 1;
+        if (nextIdx < transcriptRef.current.length) {
+          handleSeek(transcriptRef.current[nextIdx].offset, nextIdx);
+        } else if (playerRef.current) {
+          playerRef.current.play();
+        }
+      }
+    }, 1000);
+  }, [handleSeek]);
 
   // Skip / Continue Echo Countdown early
   const skipEchoCountdown = useCallback(() => {
@@ -322,31 +370,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           const endMs = currentItem.offset + duration + 150;
 
           if (currentMs >= endMs) {
-            isEchoPausingRef.current = true;
-            player.pause();
-
-            const pauseSec = echoDurationRef.current || 10;
-            setEchoCountdown(pauseSec);
-
-            if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
-            let count = pauseSec;
-            echoIntervalRef.current = setInterval(() => {
-              count -= 1;
-              if (count > 0) {
-                setEchoCountdown(count);
-              } else {
-                if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
-                echoIntervalRef.current = null;
-                setEchoCountdown(null);
-                isEchoPausingRef.current = false;
-                const nextIdx = activeIndexRef.current + 1;
-                if (nextIdx < transcriptRef.current.length) {
-                  handleSeek(transcriptRef.current[nextIdx].offset, nextIdx);
-                } else {
-                  player.play();
-                }
-              }
-            }, 1000);
+            startEchoCountdown();
             return;
           }
         }
@@ -383,7 +407,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         playerRef.current = null;
       }
     };
-  }, [id, handleSeek, triggerLessonCompletion]);
+  }, [id, handleSeek, triggerLessonCompletion, startEchoCountdown]);
 
   /* 3. Handle Auto-Scroll INSIDE transcript container ONLY (Never scroll the main window) */
   useEffect(() => {
@@ -408,9 +432,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const handlePrevLine = useCallback(() => {
     if (transcript.length === 0) return;
-    const targetIdx = activeIndex > 0 ? activeIndex - 1 : 0;
+    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
+    const targetIdx = baseIdx > 0 ? baseIdx - 1 : 0;
     handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, handleSeek]);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
   const handleReplayCurrent = useCallback(() => {
     if (transcript.length === 0) return;
@@ -423,9 +448,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const handleNextLine = useCallback(() => {
     if (transcript.length === 0) return;
-    const targetIdx = activeIndex < transcript.length - 1 ? activeIndex + 1 : transcript.length - 1;
+    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
+    const targetIdx = baseIdx < transcript.length - 1 ? baseIdx + 1 : transcript.length - 1;
     handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, handleSeek]);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
   const handleSpeedPreset = useCallback((speed: number) => {
     if (playerRef.current) {
@@ -720,14 +746,22 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               </p>
 
               {/* Action buttons during countdown */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 <button
                   onClick={skipEchoCountdown}
                   className="px-3.5 py-1.5 rounded-lg bg-[#853BCE] hover:bg-[#9745e6] text-white text-xs font-mono font-medium transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                  title="Finish speaking and continue immediately"
+                  title="Finish speaking and proceed to next sentence immediately"
                 >
                   <SkipForward size={13} />
                   <span>Continue Now</span>
+                </button>
+                <button
+                  onClick={() => startEchoCountdown()}
+                  className="px-3 py-1.5 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#DCDCE0] hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
+                  title={`Restart ${echoDuration}s countdown from the beginning`}
+                >
+                  <RotateCcw size={13} />
+                  <span>Restart ({echoDuration}s)</span>
                 </button>
                 <button
                   onClick={() => {
@@ -736,11 +770,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     setEchoCountdown(null);
                     handleReplayCurrent();
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#DCDCE0] hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Replay this sentence"
+                  className="px-3 py-1.5 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#A1A0AB] hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Replay this sentence audio"
                 >
-                  <RotateCcw size={13} />
-                  <span>Replay</span>
+                  <Volume2 size={13} />
+                  <span>Replay Audio</span>
                 </button>
               </div>
             </div>
@@ -789,6 +823,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                       try {
                         localStorage.setItem("shadowing_echo_duration", String(sec));
                       } catch {}
+                      if (isEchoPausingRef.current) {
+                        startEchoCountdown(sec);
+                      }
                     }}
                     className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
                       echoDuration === sec
@@ -811,7 +848,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handlePrevLine}
-              disabled={activeIndex <= 0}
+              disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) <= 0}
               className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
               title="Previous Line (←)"
             >
@@ -821,7 +858,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
             <button
               onClick={handleReplayCurrent}
-              disabled={activeIndex === -1}
+              disabled={transcript.length === 0}
               className="p-2 sm:px-3.5 sm:py-2 rounded-lg bg-[#853BCE]/20 border border-[#853BCE]/40 text-white hover:bg-[#853BCE] hover:border-[#853BCE] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium shadow-md shadow-[#853BCE]/15 cursor-pointer"
               title="Replay Current Line (R)"
             >
@@ -831,7 +868,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
             <button
               onClick={handleNextLine}
-              disabled={activeIndex >= transcript.length - 1}
+              disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
               className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
               title="Next Line (→)"
             >
