@@ -16,7 +16,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Beginner",
     situation: "Family & Everyday Emotion",
     description: "စကားပြောအသံထွက် ရှင်းလင်းပြီး မျက်နှာအမူအရာဖြင့် နားလည်လွယ်သောကြောင့် စတင်လေ့ကျင့်သူများအတွက် အထူးသင့်တော်သည်။",
-    thumbnail: "https://img.youtube.com/vi/5y_KJAg8bHI/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/5y_KJAg8bHI/hqdefault.jpg",
     featuredQuote: "You are not encouraging this, I'm not encouraging this!",
   },
   {
@@ -30,7 +30,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Beginner",
     situation: "Animated Confrontation",
     description: "ဝေါဟာရရိုးရှင်းပြီး အဓိပ္ပာယ်သက်ရောက်မှုပြင်းထန်သော short sentences များကို အဓိကထားလေ့ကျင့်နိုင်သည်။",
-    thumbnail: "https://img.youtube.com/vi/KYz2wyBy3kc/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/KYz2wyBy3kc/hqdefault.jpg",
     featuredQuote: "You are a child's plaything! You are a toy!",
   },
   {
@@ -44,7 +44,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Beginner",
     situation: "Food Critique & Emotion",
     description: "Anton Ego ၏ လှပသော အသံနေအထားနှင့် ရင်တွင်းခံစားချက်ဖော်ပြသည့် စကားလုံးများကို rhythm မှန်မှန် shadow လုပ်နိုင်သည်။",
-    thumbnail: "https://img.youtube.com/vi/8cT_Ul8ElW8/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/8cT_Ul8ElW8/hqdefault.jpg",
     featuredQuote: "Not everyone can become a great artist, but a great artist can come from anywhere.",
   },
   {
@@ -58,7 +58,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Beginner",
     situation: "Group Meeting & Humor",
     description: "အုပ်စုလိုက် စကားပြောဆိုမှုနှင့် ရယ်စရာဟာသစကားလုံးများကို လေ့လာသင်ယူရန် အကောင်းဆုံးဖြစ်သည်။",
-    thumbnail: "https://img.youtube.com/vi/Qaa_c37R-h0/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/Qaa_c37R-h0/hqdefault.jpg",
     featuredQuote: "I am a nice shark, not a mindless eating machine.",
   },
   {
@@ -72,7 +72,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Beginner",
     situation: "Life Wisdom & Metaphor",
     description: "နူးညံ့သိမ်မွေ့သော pacing ဖြင့် ပြောဆိုထားသဖြင့် vowel sounds များကို သေချာတိကျစွာ အသံတုပနိုင်သည်။",
-    thumbnail: "https://img.youtube.com/vi/Vp4W-WfWnC8/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/Vp4W-WfWnC8/hqdefault.jpg",
     featuredQuote: "To make something special, you just have to believe it's special.",
   },
 
@@ -91,7 +91,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Intermediate",
     situation: "Everyday Casual Chat",
     description: "နေ့စဉ်ဘဝမှာ အမြဲသုံးရမယ့် idioms များနှင့် slang များကို သဘာဝကျကျ အမြန်နှုန်းဖြင့် shadow လုပ်ရန်။",
-    thumbnail: "https://img.youtube.com/vi/Rnwwo9Zol6w/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/Rnwwo9Zol6w/hqdefault.jpg",
     featuredQuote: "I was wondering if you had a second to talk about this.",
   },
   {
@@ -105,7 +105,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Intermediate",
     situation: "Frustration & Direct Commands",
     description: "Ross, Chandler နှင့် Rachel တို့၏ အပြိုင်အဆိုင် အော်ဟစ်ပြောဆိုမှု၊ intonation နှင့် stress patterns များကို လေ့ကျင့်နိုင်သည်။",
-    thumbnail: "https://img.youtube.com/vi/ry4U_Y8aNlU/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/ry4U_Y8aNlU/hqdefault.jpg",
     featuredQuote: "Pivot! Pivot! Pivot! Shut up, shut up, shut up!",
   },
   {
@@ -119,7 +119,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Intermediate",
     situation: "Humorous Advice & Family",
     description: "Phil Dunphy ၏ အပြုသဘောဆောင်ပြီး ဟာသမြောက်သည့် စကားပြောဟန်ဖြင့် အင်္ဂလိပ်စာစကားပြောကို ယုံကြည်မှုတိုးစေသည်။",
-    thumbnail: "https://img.youtube.com/vi/u1Kq1RhyxXk/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/u1Kq1RhyxXk/hqdefault.jpg",
     featuredQuote: "If you love something, set it free. Unless it's a tiger.",
   },
   {
@@ -133,7 +133,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Intermediate",
     situation: "Workplace Panic & Satire",
     description: "အလုပ်ခွင် ဟာသနှင့် အရေးပေါ်အခြေအနေများတွင် ပြောဆိုကြသော အသံအတင်အချများကို အလွယ်တကူ လိုက်ပါပြောဆိုနိုင်သည်။",
-    thumbnail: "https://img.youtube.com/vi/gO8N3L_aQes/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/gO8N3L_aQes/hqdefault.jpg",
     featuredQuote: "Today, smoking is going to save lives.",
   },
   {
@@ -147,7 +147,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Intermediate",
     situation: "Sarcastic Banter & Street English",
     description: "မြန်ဆန်သော sarcasm၊ punchlines များနှင့် casual connectors (like, you know, actually) များကို အကျွမ်းတဝင်ရှိစေသည်။",
-    thumbnail: "https://img.youtube.com/vi/F_7k12B5j_A/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/F_7k12B5j_A/hqdefault.jpg",
     featuredQuote: "Love is a beautiful thing. When you find it, the whole world smells like daffodil daydream.",
   },
   {
@@ -161,7 +161,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Intermediate",
     situation: "Deep Emotional Dialogue",
     description: "Robin Williams ၏ နက်ရှိုင်းပြီး အဓိပ္ပာယ်ပြည့်ဝသော ရင်ဖွင့်စကားများကို pause & emphasis အတိအကျ shadow လုပ်နိုင်သည်။",
-    thumbnail: "https://img.youtube.com/vi/VbxgY9t2N_M/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/VbxgY9t2N_M/hqdefault.jpg",
     featuredQuote: "You don't know about real loss, because that only occurs when you love something more than you love yourself.",
   },
 
@@ -180,7 +180,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Advanced",
     situation: "Keynote & Leadership",
     description: "ကမ္ဘာ့အကျော်ကြားဆုံး keynote စကားပြောဟန်။ ဆွဲဆောင်မှုရှိသော pauses များနှင့် storytelling rhythm ကို လေ့ကျင့်ရန်။",
-    thumbnail: "https://img.youtube.com/vi/UF8uR6Z6KLc/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/UF8uR6Z6KLc/hqdefault.jpg",
     featuredQuote: "Your time is limited, so don't waste it living someone else's life.",
   },
   {
@@ -194,7 +194,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Advanced",
     situation: "Corporate Authority & Eloquence",
     description: "အေးဆေးတည်ငြိမ်သော်လည်း ဩဇာအာဏာပြည့်ဝသော business tone၊ precise articulation နှင့် complex sentence structures များ။",
-    thumbnail: "https://img.youtube.com/vi/b28_L-m_m-4/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/b28_L-m_m-4/hqdefault.jpg",
     featuredQuote: "You think this has nothing to do with you. It's tough of you to think that you're exempt.",
   },
   {
@@ -208,7 +208,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Advanced",
     situation: "Tech Startup & Negotiation",
     description: "Aaron Sorkin ၏ နာမည်ကြီး လျင်မြန်သော dialog pacing နှင့် high-stakes negotiation စကားပြောစတိုင်။",
-    thumbnail: "https://img.youtube.com/vi/lB95KLmpLR4/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/lB95KLmpLR4/hqdefault.jpg",
     featuredQuote: "A million dollars isn't cool. You know what is cool? A billion dollars.",
   },
   {
@@ -222,7 +222,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Advanced",
     situation: "Philosophical Persuasion",
     description: "စိတ်ကူးစိတ်သန်းများကို ဆွဲဆောင်မှုရှိရှိ ရှင်းပြနိုင်သော rhetorical devices များနှင့် persuasive intonation။",
-    thumbnail: "https://img.youtube.com/vi/Yo7bH37YyYk/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/Yo7bH37YyYk/hqdefault.jpg",
     featuredQuote: "What is the most resilient parasite? An Idea. Resilient, highly contagious.",
   },
   {
@@ -236,7 +236,7 @@ export const CURATED_MOVIES: CuratedMovieItem[] = [
     difficulty: "Advanced",
     situation: "Historical Soliloquy",
     description: "နက်နဲလေးနက်သော သမိုင်းဝင်မိန့်ခွန်း။ စကားလုံးတိုင်းကို သေချာလေးနက်စွာ အလေးပေးပြောဆိုသည့် speech patterns။",
-    thumbnail: "https://img.youtube.com/vi/X4bV9Y3qMls/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/X4bV9Y3qMls/hqdefault.jpg",
     featuredQuote: "We knew the world would not be the same. A few people laughed, a few people cried, most were silent.",
   },
 ];
