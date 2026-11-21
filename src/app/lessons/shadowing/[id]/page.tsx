@@ -270,6 +270,41 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     [id]
   );
 
+  // Mark Sentence as Mastered (Idempotent - auto-marks when sentence ends)
+  const markMastered = useCallback(
+    (index: number) => {
+      setMasteredIndices((prev) => {
+        if (prev.has(index)) return prev;
+        const next = new Set(prev);
+        next.add(index);
+
+        try {
+          localStorage.setItem(`mastered_lesson_${id}`, JSON.stringify(Array.from(next)));
+
+          const newMasteredCount = next.size;
+          const totalLines = transcriptRef.current.length;
+
+          if (totalLines > 0 && newMasteredCount >= totalLines) {
+            triggerLessonCompletion("mastery");
+          }
+
+          setStreakData((prevData) => {
+            const { updatedData } = recordMasteredLineProgress(prevData);
+            return updatedData;
+          });
+        } catch (e) {
+          console.warn("Storage error:", e);
+        }
+
+        return next;
+      });
+    },
+    [id, triggerLessonCompletion]
+  );
+
+  const markMasteredRef = useRef(markMastered);
+  markMasteredRef.current = markMastered;
+
   // Uncomplete Lesson
   const uncompleteLesson = useCallback(() => {
     setIsLessonCompleted(false);
@@ -386,6 +421,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           const startSec = Math.max(0, currentItem.offset / 1000);
 
           if (rawCurrentMs >= endMs) {
+            markMasteredRef.current(curIdx);
             seekLockUntilRef.current = Date.now() + 400;
             player.currentTime(startSec);
             return;
@@ -414,6 +450,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             activeIndexRef.current = curIdx;
             setActiveIndex(curIdx);
             setFocusedIndex(curIdx);
+            // Auto mark the completed sentence as Mastered!
+            markMasteredRef.current(curIdx);
             return;
           }
         }
@@ -455,6 +493,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       const newIndex = findActiveTranscriptIndex(items, effectiveMs);
 
       if (newIndex !== -1 && newIndex !== activeIndexRef.current) {
+        const prevIdx = activeIndexRef.current;
+        if (prevIdx !== -1 && newIndex > prevIdx && !player.paused()) {
+          markMasteredRef.current(prevIdx);
+        }
         activeIndexRef.current = newIndex;
         setActiveIndex(newIndex);
       }
@@ -479,6 +521,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       if (tickTimer) {
         clearInterval(tickTimer);
         tickTimer = null;
+      }
+      if (activeIndexRef.current !== -1) {
+        markMasteredRef.current(activeIndexRef.current);
       }
       triggerLessonCompletion("playthrough");
     });
@@ -543,13 +588,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     if (items.length === 0) return;
     const currentActive = activeIndexRef.current !== -1 ? activeIndexRef.current : focusedIndex;
     const baseIdx = currentActive >= 0 ? currentActive : 0;
+    // Auto-mark current sentence as Mastered before advancing
+    markMastered(baseIdx);
     if (baseIdx >= items.length - 1) {
       triggerLessonCompletion("playthrough");
       return;
     }
     const targetIdx = Math.min(items.length - 1, baseIdx + 1);
     handleSeek(items[targetIdx].offset, targetIdx);
-  }, [focusedIndex, handleSeek, triggerLessonCompletion]);
+  }, [focusedIndex, handleSeek, markMastered, triggerLessonCompletion]);
 
   // 5-Second (Customizable) Auto-Next Countdown Timer when paused at sentence end
   useEffect(() => {
@@ -649,7 +696,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             const newMasteredCount = next.size;
             const totalLines = transcriptRef.current.length;
 
-            if (totalLines > 0 && newMasteredCount / totalLines >= 0.8) {
+            if (totalLines > 0 && newMasteredCount >= totalLines) {
               triggerLessonCompletion("mastery");
             }
 
