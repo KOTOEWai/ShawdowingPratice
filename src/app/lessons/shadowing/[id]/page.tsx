@@ -16,6 +16,7 @@ import {
 } from "@/features/shadowing";
 import { WordWithMeaning } from "@/features/vocabulary";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import videojs from "video.js";
 import Player from "video.js/dist/types/player";
@@ -47,6 +48,7 @@ import {
   Minimize2,
   Maximize2,
   Square,
+  Clock,
 } from "lucide-react";
 
 type VideoSize = "compact" | "normal" | "wide";
@@ -108,6 +110,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const isLessonCompletedRef = useRef<boolean>(false);
   const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false);
   const [completionReason, setCompletionReason] = useState<"mastery" | "playthrough" | "manual">("mastery");
+
+  // Video Validation Error (e.g. video exceeds 7-minute limit)
+  const [durationError, setDurationError] = useState<string | null>(null);
 
   // Sync focusedIndex so the focus card persists during breath pauses & silence
   useEffect(() => {
@@ -227,8 +232,17 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     async function fetchTranscript() {
       try {
         setLoading(true);
+        setDurationError(null);
         const res = await fetch(`/api/FetchTranscript?videoId=${id}`);
         const data = await res.json();
+
+        if (!res.ok || data.error) {
+          setDurationError(
+            data.message || data.error || "Could not load subtitles for this video."
+          );
+          return;
+        }
+
         const rawItems = Array.isArray(data) ? data : data?.content || [];
         const items: TranscriptItem[] = cleanTranscriptItems(rawItems);
 
@@ -236,6 +250,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         transcriptRef.current = items;
       } catch (err) {
         console.error("Failed to load transcript", err);
+        setDurationError("Network error while loading video subtitles.");
       } finally {
         setLoading(false);
       }
@@ -588,8 +603,42 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           reason={completionReason}
         />
 
-        {/* Left Column: Video + Unified Controls + Focus Card + Audio Comparison */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* If video duration exceeds 7-minute limit, display warning banner */}
+        {durationError ? (
+          <div className="lg:col-span-3 my-8">
+            <div className="max-w-xl mx-auto bg-[#1F132A] border border-[#8C2727] rounded-sm p-6 sm:p-8 text-center space-y-4 shadow-2xl">
+              <div className="w-12 h-12 rounded-sm bg-[#8C2727]/20 border border-[#8C2727] flex items-center justify-center text-[#8C2727] mx-auto">
+                <Clock size={24} />
+              </div>
+              <h2 className="text-base font-bold font-mono uppercase tracking-wider text-[#E9E1D4]">
+                Video Exceeds 7-Minute Limit
+              </h2>
+              <p className="text-xs text-[#E9E1D4]/80 font-mono leading-relaxed">
+                {durationError}
+              </p>
+              <div className="p-3 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm text-[11px] font-mono text-[#B5A642] text-left">
+                <strong>Why 7 minutes?</strong> Shadowing requires deep, repetitive focus on native speech rhythm and pronunciation. Videos longer than 7 minutes cause mental fatigue and hinder speaking mastery.
+              </div>
+              <div className="pt-2 flex flex-wrap justify-center gap-3">
+                <Link
+                  href="/Topics"
+                  className="px-5 py-2.5 bg-[#B5A642] text-[#1F132A] hover:bg-[#c4b54e] rounded-sm font-mono text-xs font-bold uppercase tracking-wider transition-colors"
+                >
+                  Browse Short Practice Lessons
+                </Link>
+                <Link
+                  href="/"
+                  className="px-5 py-2.5 bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] rounded-sm font-mono text-xs uppercase tracking-wider transition-colors"
+                >
+                  Return Home
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Left Column: Video + Unified Controls + Focus Card + Audio Comparison */}
+            <div className="lg:col-span-2 space-y-4">
           {/* Streamlined Top Bar (Distraction-Free) */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-4 py-2.5">
             <div className="flex items-center gap-3 text-xs font-mono">
@@ -1065,7 +1114,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </>
+    )}
+  </div>
+</div>
   );
 }

@@ -95,6 +95,22 @@ export async function GET(req: NextRequest) {
         console.log(`Redis Cache Hit (v5 Cleaned) for video: ${videoId}`);
         const parsed = typeof cachedData === "string" ? JSON.parse(cachedData) : cachedData;
         const cleanedCached = cleanTranscriptItems(parsed.content || parsed);
+
+        // Enforce 7-minute maximum limit on cached data (450,000ms = 7.5 mins buffer)
+        const lastItem = cleanedCached[cleanedCached.length - 1];
+        const totalDurationMs = lastItem ? lastItem.offset + (lastItem.duration || 0) : 0;
+        if (totalDurationMs > 450000) {
+          const durationMinutes = Math.round(totalDurationMs / 60000);
+          return NextResponse.json(
+            {
+              error: "DURATION_EXCEEDED",
+              message: `This video is ~${durationMinutes} minutes long, exceeding the 7-minute limit. Please choose a clip under 7 minutes for focused, fatigue-free shadowing practice.`,
+              durationMinutes,
+            },
+            { status: 400 }
+          );
+        }
+
         return NextResponse.json(cleanedCached);
       }
     } catch (redisError) {
@@ -128,6 +144,21 @@ export async function GET(req: NextRequest) {
         duration: Number(item.duration) || 0,
       }))
     );
+
+    // Enforce 7-minute limit on new videos (450,000ms = 7.5 mins buffer)
+    const lastItem = rawItems[rawItems.length - 1];
+    const totalDurationMs = lastItem ? lastItem.offset + (lastItem.duration || 0) : 0;
+    if (totalDurationMs > 450000) {
+      const durationMinutes = Math.round(totalDurationMs / 60000);
+      return NextResponse.json(
+        {
+          error: "DURATION_EXCEEDED",
+          message: `This video is ~${durationMinutes} minutes long, exceeding the 7-minute limit. Please choose a clip under 7 minutes for focused, fatigue-free shadowing practice.`,
+          durationMinutes,
+        },
+        { status: 400 }
+      );
+    }
 
     // 3. Post-Process & Polish with Gemini 2.5 Flash
     console.log(`Polishing transcript with Gemini AI for: ${videoId}`);

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Youtube, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
+import { X, Youtube, ArrowRight, AlertCircle, Clock, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CustomVideoModalProps {
@@ -18,17 +18,15 @@ export default function CustomVideoModal({ isOpen, onClose }: CustomVideoModalPr
 
   /**
    * Extracts YouTube Video ID from any standard URL format:
-   * - https://www.youtube.com/watch?v=Rnwwo9Zol6w
-   * - https://youtu.be/Rnwwo9Zol6w
-   * - https://www.youtube.com/embed/Rnwwo9Zol6w
-   * - https://www.youtube.com/shorts/Rnwwo9Zol6w
+   * - https://www.youtube.com/watch?v=5y_KJAg8bHI
+   * - https://youtu.be/5y_KJAg8bHI
+   * - https://www.youtube.com/shorts/...
    * - Direct 11-char ID
    */
   const extractVideoId = (input: string): string | null => {
     const trimmed = input.trim();
     if (!trimmed) return null;
 
-    // Direct 11-character video ID
     if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
       return trimmed;
     }
@@ -48,7 +46,6 @@ export default function CustomVideoModal({ isOpen, onClose }: CustomVideoModalPr
         return url.pathname.slice(1).split("?")[0];
       }
     } catch {
-      // Not a valid URL, try regex
       const regexMatch = trimmed.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*)/);
       if (regexMatch && regexMatch[1] && regexMatch[1].length === 11) {
         return regexMatch[1];
@@ -58,7 +55,7 @@ export default function CustomVideoModal({ isOpen, onClose }: CustomVideoModalPr
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -69,47 +66,76 @@ export default function CustomVideoModal({ isOpen, onClose }: CustomVideoModalPr
     }
 
     setLoading(true);
-    onClose();
-    router.push(`/lessons/shadowing/${videoId}`);
+
+    try {
+      // Validate video length (must be <= 7 minutes) and fetch transcript
+      const res = await fetch(`/api/FetchTranscript?videoId=${videoId}`);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        const errorMsg =
+          data.message ||
+          data.error ||
+          "Could not load subtitles for this video. Please make sure the video has English subtitles.";
+        setError(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      // Valid video!
+      setLoading(false);
+      onClose();
+      router.push(`/lessons/shadowing/${videoId}`);
+    } catch {
+      setError("Failed to validate video. Please check your network connection and try again.");
+      setLoading(false);
+    }
   };
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="relative w-full max-w-lg bg-[#1F132A] border border-[#33323E] rounded-2xl p-6 sm:p-8 shadow-2xl text-white"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          className="relative w-full max-w-lg bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-6 sm:p-7 shadow-2xl text-[#E9E1D4]"
         >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 p-1.5 rounded-lg text-[#A1A0AB] hover:text-white hover:bg-[#181622] transition-colors"
+            className="absolute top-4 right-4 p-1.5 text-[#E9E1D4]/60 hover:text-[#B5A642] hover:bg-[#2E2E2E] transition-colors"
           >
             <X size={18} />
           </button>
 
-          {/* Icon & Title */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
-              <Youtube size={22} />
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4 border-b border-[#3A3A3A] pb-3">
+            <div className="w-9 h-9 rounded-sm bg-[#8C2727]/20 border border-[#8C2727] flex items-center justify-center text-[#8C2727]">
+              <Youtube size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white tracking-tight">Practice Any YouTube Video</h3>
-              <p className="text-xs text-[#A1A0AB]">Turn any authentic native video into a shadowing lesson</p>
+              <h3 className="text-base font-bold font-mono uppercase tracking-wider text-[#E9E1D4]">
+                Practice Custom Video
+              </h3>
+              <p className="text-xs text-[#E9E1D4]/60 font-mono">Turn movie scenes & talks into shadowing lessons</p>
             </div>
           </div>
 
-          <p className="text-xs text-[#A1A0AB] mb-6 leading-relaxed">
-            Paste any English video link from YouTube (TED Talks, Movie clips, Interviews, Podcasts). Our engine will automatically fetch the subtitles, polish the punctuation, and build your interactive lesson.
-          </p>
+          {/* 7-Minute Limit Notice */}
+          <div className="mb-5 p-3 rounded-sm bg-[#2E2E2E] border border-[#B5A642]/60 flex items-start gap-2.5">
+            <Clock size={16} className="text-[#B5A642] shrink-0 mt-0.5" />
+            <div className="text-xs font-mono leading-relaxed text-[#E9E1D4]">
+              <strong className="text-[#B5A642] uppercase block mb-0.5">Max 7 Minutes Limit:</strong>
+              To prevent fatigue and keep shadowing practice 100% focused, please choose short movie clips or conversations under 7 minutes.
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-[#DCDCE0] mb-2 font-medium">
+              <label className="block text-xs font-mono uppercase tracking-wider text-[#E9E1D4] mb-2 font-bold">
                 YouTube URL or Video ID
               </label>
               <input
@@ -120,14 +146,14 @@ export default function CustomVideoModal({ isOpen, onClose }: CustomVideoModalPr
                   if (error) setError("");
                 }}
                 placeholder="https://www.youtube.com/watch?v=..."
-                className="w-full px-4 py-3 bg-[#13111C] border border-[#33323E] focus:border-[#853BCE] focus:ring-1 focus:ring-[#853BCE] rounded-xl text-sm text-white placeholder-[#6C6B7B] outline-none transition-all font-mono"
+                className="w-full px-3.5 py-2.5 bg-[#2E2E2E] border border-[#3A3A3A] focus:border-[#B5A642] rounded-sm text-xs text-[#E9E1D4] placeholder-[#7A7A7A] outline-none transition-colors font-mono"
                 autoFocus
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-950/40 border border-rose-800/40 text-rose-300 text-xs">
-                <AlertCircle size={14} className="shrink-0 text-rose-400" />
+              <div className="flex items-start gap-2 p-3 rounded-sm bg-[#8C2727]/20 border border-[#8C2727] text-[#E9E1D4] text-xs font-mono">
+                <AlertCircle size={15} className="shrink-0 text-[#8C2727] mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
@@ -136,36 +162,36 @@ export default function CustomVideoModal({ isOpen, onClose }: CustomVideoModalPr
               <button
                 type="button"
                 onClick={onClose}
-                className="btn-railway-secondary px-4 py-2.5 text-xs font-medium"
+                className="px-4 py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-xs font-mono text-[#E9E1D4]/80 hover:text-[#E9E1D4] transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading || !urlInput.trim()}
-                className="btn-railway-primary flex items-center gap-2 px-6 py-2.5 text-xs font-medium disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 rounded-sm bg-[#B5A642] text-[#1F132A] hover:bg-[#c4b54e] font-mono font-bold text-xs uppercase tracking-wider disabled:opacity-50 transition-colors cursor-pointer"
               >
-                <span>{loading ? "Generating..." : "Start Lesson"}</span>
-                <ArrowRight size={14} />
+                {loading ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
+                <span>{loading ? "Validating & Building..." : "Start Lesson"}</span>
               </button>
             </div>
           </form>
 
-          {/* Quick Examples */}
-          <div className="mt-6 pt-5 border-t border-[#33323E]/80">
-            <span className="text-[11px] font-mono text-[#6C6B7B] uppercase tracking-wider block mb-2">
-              Try a sample video:
+          {/* Sample Short Movie Clips */}
+          <div className="mt-5 pt-4 border-t border-[#3A3A3A]">
+            <span className="text-[11px] font-mono text-[#7A7A7A] uppercase tracking-wider block mb-2">
+              Try sample short clips (under 7 mins):
             </span>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: "Shorts Clip", id: "Rnwwo9Zol6w" },
-                { label: "Steve Jobs Speech", id: "UF8uR6Z6KLc" },
+                { label: "The Incredibles Clip (2m)", id: "5y_KJAg8bHI" },
+                { label: "Shorts Conversation (1m)", id: "Rnwwo9Zol6w" },
               ].map((sample) => (
                 <button
                   key={sample.id}
                   type="button"
                   onClick={() => setUrlInput(`https://www.youtube.com/watch?v=${sample.id}`)}
-                  className="px-2.5 py-1 rounded bg-[#13111C] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] text-[#A1A0AB] hover:text-white transition-all font-mono"
+                  className="px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] text-[#E9E1D4]/80 hover:text-[#B5A642] transition-colors font-mono cursor-pointer"
                 >
                   {sample.label}
                 </button>
