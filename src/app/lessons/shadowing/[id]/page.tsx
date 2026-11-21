@@ -846,7 +846,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="bg-[#2E2E2E] min-h-screen text-[#E9E1D4]">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6 p-2.5 sm:p-6">
         {/* Keyboard Shortcuts Modal */}
         <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
@@ -910,29 +910,29 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         ) : (
           <>
             {/* Left Column: Video + Unified Controls + Focus Card + Audio Comparison */}
-            <div className="lg:col-span-2 space-y-4">
-          {/* Streamlined Top Bar (Distraction-Free) */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-4 py-2.5">
-            <div className="flex items-center gap-3 text-xs font-mono">
+            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+          {/* Streamlined Top Bar (Distraction-Free & Mobile-Optimized) */}
+          <div className="flex items-center justify-between gap-2 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-3 py-2 sm:px-4 sm:py-2.5">
+            <div className="flex items-center gap-2 sm:gap-3 text-xs font-mono">
               {/* Streak Indicator */}
               <button
                 onClick={() => setShowStreakModal(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#2E2E2E] hover:bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#B5A642] font-semibold text-xs font-mono transition-colors cursor-pointer"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-sm bg-[#2E2E2E] hover:bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#B5A642] font-semibold text-[11px] sm:text-xs font-mono transition-colors cursor-pointer"
                 title="View Streak Status"
               >
-                <Flame size={14} className={`fill-[#B5A642] ${streakData.isGoalMet ? "animate-pulse" : ""}`} />
+                <Flame size={13} className={`fill-[#B5A642] ${streakData.isGoalMet ? "animate-pulse" : ""}`} />
                 <span>{streakData.streak}d Streak</span>
                 {streakData.freezes > 0 && (
-                  <span className="flex items-center gap-0.5 text-[#3B5998] text-[10px]">
-                    <Snowflake size={11} /> {streakData.freezes}
+                  <span className="flex items-center gap-0.5 text-[#3B5998] text-[9px] sm:text-[10px]">
+                    <Snowflake size={10} /> {streakData.freezes}
                   </span>
                 )}
               </button>
 
-              <span className="text-[#7A7A7A] hidden sm:inline">|</span>
+              <span className="text-[#7A7A7A] hidden md:inline">|</span>
 
               {/* Mastered Counter */}
-              <span className="text-[11px] font-mono text-[#E9E1D4]/80 hidden sm:inline">
+              <span className="text-[11px] font-mono text-[#E9E1D4]/80 hidden md:inline">
                 Mastered:{" "}
                 <span className="text-[#B5A642] font-bold">
                   {masteredIndices.size}/{transcript.length}
@@ -941,22 +941,22 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             </div>
 
             {/* Top Right Quick Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {isLessonCompleted ? (
                 <button
                   onClick={uncompleteLesson}
-                  className="group flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#B5A642]/20 border border-[#B5A642] text-[11px] font-mono text-[#B5A642] hover:bg-[#8C2727]/30 hover:border-[#8C2727] hover:text-[#E9E1D4] transition-colors cursor-pointer"
+                  className="group flex items-center gap-1 px-2 py-1 sm:px-2.5 rounded-sm bg-[#B5A642]/20 border border-[#B5A642] text-[10px] sm:text-[11px] font-mono text-[#B5A642] hover:bg-[#8C2727]/30 hover:border-[#8C2727] hover:text-[#E9E1D4] transition-colors cursor-pointer"
                   title="Click to reset lesson completed status"
                 >
-                  <CheckCircle2 size={13} className="group-hover:hidden" />
+                  <CheckCircle2 size={12} className="group-hover:hidden" />
                   <RotateCcw size={12} className="hidden group-hover:inline text-[#8C2727]" />
-                  <span className="group-hover:hidden">Lesson Done</span>
-                  <span className="hidden group-hover:inline">Uncomplete</span>
+                  <span className="group-hover:hidden">Done</span>
+                  <span className="hidden group-hover:inline">Undo</span>
                 </button>
               ) : (
                 <button
                   onClick={() => triggerLessonCompletion("manual")}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#B5A642] transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-2 py-1 sm:px-2.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[10px] sm:text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#B5A642] transition-colors cursor-pointer"
                   title="Mark this lesson as done"
                 >
                   <Check size={12} />
@@ -967,31 +967,31 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               {/* Leaderboard Button */}
               <button
                 onClick={() => setShowLeaderboard(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[11px] font-mono text-[#E9E1D4] hover:text-[#B5A642] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 sm:px-2.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[10px] sm:text-[11px] font-mono text-[#E9E1D4] hover:text-[#B5A642] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
                 title="View Leaderboard"
               >
-                <Trophy size={13} className="text-[#B5A642]" />
+                <Trophy size={12} className="text-[#B5A642]" />
                 <span className="hidden sm:inline">Leaderboard</span>
               </button>
 
               {/* Bookmark Button */}
               <button
                 onClick={toggleBookmark}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors cursor-pointer ${
+                className={`flex items-center gap-1 px-2 py-1 sm:px-2.5 rounded-sm border text-[10px] sm:text-[11px] font-mono transition-colors cursor-pointer ${
                   isBookmarked
                     ? "bg-[#B5A642]/20 text-[#B5A642] border-[#B5A642]/50"
                     : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/70 hover:text-[#E9E1D4]"
                 }`}
                 title="Save Lesson"
               >
-                <Bookmark size={13} className={isBookmarked ? "fill-[#B5A642]" : ""} />
+                <Bookmark size={12} className={isBookmarked ? "fill-[#B5A642]" : ""} />
                 <span className="hidden sm:inline">{isBookmarked ? "Saved" : "Save"}</span>
               </button>
 
-              {/* Shortcuts Key Button */}
+              {/* Shortcuts Key Button (hidden on mobile) */}
               <button
                 onClick={() => setShowShortcuts(true)}
-                className="flex items-center gap-1 px-2 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
+                className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
                 title="Keyboard Shortcuts (?)"
               >
                 <Keyboard size={12} />
@@ -1008,25 +1008,25 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               <div ref={videoRef} data-vjs-player />
             </div>
 
-            {/* Video Player Compact Controller Bar */}
-            <div className={`w-full ${videoMaxWidthClass} mx-auto bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-sm transition-all duration-300`}>
-              {/* Playback & Modes Controls */}
-              <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Video Player Compact Controller Bar (Fully Responsive) */}
+            <div className={`w-full ${videoMaxWidthClass} mx-auto bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-2 sm:px-3 sm:py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm transition-all duration-300`}>
+              {/* Row 1 on mobile, Left group on desktop: Primary Playback */}
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2 w-full sm:w-auto">
                 {/* Prev Line */}
                 <button
                   onClick={handlePrevLine}
                   disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) <= 0}
-                  className="px-2.5 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-xs font-mono cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 text-xs font-mono cursor-pointer"
                   title="Previous Line (←)"
                 >
                   <SkipBack size={13} />
                   <span className="hidden sm:inline">Prev</span>
                 </button>
 
-                {/* Play / Pause Toggle (Space) */}
+                {/* Play / Pause Toggle */}
                 <button
                   onClick={togglePlayPause}
-                  className="px-3 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
+                  className="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center justify-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
                   title={
                     isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown
                       ? isCountdownPaused
@@ -1066,7 +1066,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <button
                   onClick={handleNextLine}
                   disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
-                  className={`px-3 py-1.5 rounded-sm border transition-all flex items-center gap-1.5 text-xs font-mono cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-sm border transition-all flex items-center justify-center gap-1.5 text-xs font-mono cursor-pointer ${
                     isPausedAtSentenceEnd
                       ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] font-bold shadow-md"
                       : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1083,49 +1083,48 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </button>
 
                 <div className="h-4 w-[1px] bg-[#3A3A3A] mx-0.5 hidden sm:block" />
+              </div>
 
+              {/* Row 2 on mobile, Right group on desktop: Mode Toggles & Controls */}
+              <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-[#3A3A3A]/40">
                 {/* Step Mode Toggle */}
                 <button
                   onClick={toggleAutoPause}
-                  className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  className={`flex-1 sm:flex-initial px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-sm border text-[11px] sm:text-xs font-mono transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                     autoPauseAtEnd
                       ? "bg-[#B5A642]/10 border-[#B5A642]/40 text-[#B5A642]"
                       : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
                   }`}
                   title="Step Mode: Auto-pause after each sentence for shadowing (P)"
                 >
-                  <PauseCircle size={13} />
-                  <span className="hidden sm:inline">Step Mode</span>
-                  <span className="sm:hidden">Step</span>
+                  <PauseCircle size={12} />
+                  <span>Step</span>
                   {autoPauseAtEnd && <span className="w-1.5 h-1.5 rounded-full bg-[#B5A642]" />}
                 </button>
 
                 {/* Single Sentence Loop */}
                 <button
                   onClick={() => setIsLooping((v) => !v)}
-                  className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  className={`flex-1 sm:flex-initial px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-sm border text-[11px] sm:text-xs font-mono transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                     isLooping
                       ? "bg-[#3B5998]/15 border-[#3B5998]/40 text-[#8BA2D0]"
                       : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
                   }`}
                   title="Single Sentence Loop (L)"
                 >
-                  <Repeat size={13} className={isLooping ? "animate-spin" : ""} />
-                  <span className="hidden sm:inline">Loop</span>
+                  <Repeat size={12} className={isLooping ? "animate-spin" : ""} />
+                  <span>Loop</span>
                   {isLooping && <span className="w-1.5 h-1.5 rounded-full bg-[#8BA2D0]" />}
                 </button>
-              </div>
 
-              {/* Utility Tools & Video Size Bar Combined */}
-              <div className="flex items-center gap-1.5">
                 {/* Playback Speed */}
                 <button
                   onClick={cycleSpeed}
-                  className="px-2 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642]/50 text-xs font-mono text-[#E9E1D4] hover:text-[#B5A642] transition-colors flex items-center gap-1 cursor-pointer"
+                  className="px-2 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642]/50 text-[11px] sm:text-xs font-mono text-[#E9E1D4] hover:text-[#B5A642] transition-colors flex items-center justify-center gap-1 cursor-pointer"
                   title={`Playback Speed: ${playbackRate}x (Click to cycle)`}
                 >
-                  <Gauge size={12} className="text-[#7A7A7A]" />
-                  <span className="font-bold text-[11px]">{playbackRate}x</span>
+                  <Gauge size={11} className="text-[#7A7A7A]" />
+                  <span className="font-bold">{playbackRate}x</span>
                 </button>
 
                 {/* Blind Mode Toggle */}
@@ -1135,20 +1134,20 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     setIsBlindMode((prev) => !prev);
                     setPeekBlind(false);
                   }}
-                  className={`px-2 py-1.5 rounded-sm border transition-colors cursor-pointer flex items-center gap-1 text-xs font-mono ${
+                  className={`px-2 py-1.5 rounded-sm border transition-colors cursor-pointer flex items-center justify-center gap-1 text-[11px] sm:text-xs font-mono ${
                     isBlindMode
                       ? "bg-[#8C2727]/15 text-[#E9E1D4] border-[#8C2727]/50 font-bold"
                       : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
                   }`}
                   title="Blind Mode (Blurs transcript for ear training)"
                 >
-                  {isBlindMode ? <EyeOff size={12} className="text-[#8C2727]" /> : <Eye size={12} />}
-                  <span className="hidden sm:inline">Blind</span>
+                  {isBlindMode ? <EyeOff size={11} className="text-[#8C2727]" /> : <Eye size={11} />}
+                  <span>Blind</span>
                 </button>
 
                 <div className="h-4 w-[1px] bg-[#3A3A3A] mx-0.5 hidden md:block" />
 
-                {/* Video Size Controller */}
+                {/* Video Size Controller (Desktop only) */}
                 <div className="hidden md:inline-flex border border-[#3A3A3A] bg-[#2E2E2E] rounded-sm p-0.5">
                   {[
                     { id: "compact", label: "Compact", icon: <Minimize2 size={11} />, desc: "Narrow" },
@@ -1179,8 +1178,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           {transcript.length > 0 && currentSentence && (
             <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-4 sm:p-5 shadow-lg space-y-4 transition-all">
               {/* Header: Line Info & Actions */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#3A3A3A]/60">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[#3A3A3A]/60">
+                <div className="flex items-center justify-between sm:justify-start gap-2">
                   <span className="text-xs font-mono font-bold tracking-wider uppercase text-[#B5A642] flex items-center gap-1.5">
                     <Volume2
                       size={14}
@@ -1193,22 +1192,22 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                   {/* Blind Mode Peek Button */}
                   {isBlindMode && (
                     <button
                       onClick={() => setPeekBlind((v) => !v)}
-                      className="px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4] transition-colors flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4] transition-colors flex items-center justify-center gap-1 cursor-pointer col-span-3 sm:col-auto"
                     >
-                      {peekBlind ? <EyeOff size={12} /> : <Eye size={12} />}
-                      <span>{peekBlind ? "Hide" : "Peek"}</span>
+                      {peekBlind ? <EyeOff size={11} /> : <Eye size={11} />}
+                      <span>{peekBlind ? "Hide Text" : "Peek Text"}</span>
                     </button>
                   )}
 
                   {/* Voice Test / Accent Comparison Toggle */}
                   <button
                     onClick={() => setShowVoiceComparison((v) => !v)}
-                    className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                       showVoiceComparison
                         ? "bg-[#B5A642]/20 border-[#B5A642] text-[#B5A642] font-bold"
                         : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#B5A642] hover:border-[#B5A642]/50"
@@ -1216,24 +1215,24 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     title="Record voice and compare accent (Before vs After)"
                   >
                     <Mic size={12} className={showVoiceComparison ? "text-[#B5A642]" : "text-[#7A7A7A]"} />
-                    <span>{showVoiceComparison ? "Hide Voice Test" : "Voice Test"}</span>
+                    <span className="truncate">{showVoiceComparison ? "Close" : "Voice Test"}</span>
                   </button>
 
                   {/* Translate Button */}
                   <button
                     onClick={handleTranslateToggle}
                     disabled={translating}
-                    className="px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4]/80 hover:text-[#E9E1D4] transition-colors flex items-center gap-1 cursor-pointer"
+                    className="px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4]/80 hover:text-[#E9E1D4] transition-colors flex items-center justify-center gap-1 cursor-pointer"
                     title="Translate this sentence"
                   >
                     {translating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={12} />}
-                    <span>{showTranslation ? "Hide Meaning" : "Translate"}</span>
+                    <span className="truncate">{showTranslation ? "Hide" : "Translate"}</span>
                   </button>
 
                   {/* Mark as Mastered button */}
                   <button
                     onClick={() => toggleMastered(displayIndex)}
-                    className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center gap-1 cursor-pointer ${
+                    className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center justify-center gap-1 cursor-pointer ${
                       masteredIndices.has(displayIndex)
                         ? "bg-[#26543F] text-[#42946E] border-[#367859] font-bold"
                         : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4]"
@@ -1241,7 +1240,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     title="Mark this sentence as mastered (M)"
                   >
                     <Check size={11} />
-                    <span>{masteredIndices.has(displayIndex) ? "Mastered" : "Mark Mastered"}</span>
+                    <span className="truncate">{masteredIndices.has(displayIndex) ? "Mastered" : "Master"}</span>
                   </button>
                 </div>
               </div>
@@ -1255,7 +1254,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     : ""
                 }`}
               >
-                <p className="text-lg sm:text-2xl text-[#E9E1D4] leading-relaxed font-mono select-text tracking-wide">
+                <p className="text-base sm:text-2xl text-[#E9E1D4] leading-relaxed font-mono select-text tracking-wide break-words">
                   {currentSentence.text.split(" ").map((word, wIdx) => (
                     <WordWithMeaning
                       key={wIdx}
@@ -1390,12 +1389,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 )}
 
                 {/* Primary Shadowing Action Buttons (Replay, Pause/Resume Timer, Next Line) */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#3A3A3A]/40">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#3A3A3A]/40 w-full">
                   {/* Left: Replay Button */}
                   <button
                     onClick={handleReplayCurrent}
                     disabled={transcript.length === 0}
-                    className="px-3.5 py-2 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
+                    className="flex-1 sm:flex-initial justify-center px-3 sm:px-3.5 py-2 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
                     title="Listen to this sentence again (R)"
                   >
                     <RotateCcw size={13} />
@@ -1407,7 +1406,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     <button
                       type="button"
                       onClick={() => setIsCountdownPaused((v) => !v)}
-                      className={`px-3 py-1.5 rounded-sm border text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-2 rounded-sm border text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         isCountdownPaused
                           ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] shadow-sm animate-pulse"
                           : "bg-[#1F132A] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
@@ -1418,7 +1417,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                       <span>
                         {isCountdownPaused
                           ? `Resume (${(countdownRemainingMs / 1000).toFixed(1)}s)`
-                          : `Pause Timer (${(countdownRemainingMs / 1000).toFixed(1)}s)`}
+                          : `Pause (${(countdownRemainingMs / 1000).toFixed(1)}s)`}
                       </span>
                     </button>
                   ) : (
@@ -1431,7 +1430,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   <button
                     onClick={handleNextLine}
                     disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
-                    className={`px-4 py-2 rounded-sm border transition-all flex items-center gap-2 text-xs font-mono font-bold cursor-pointer shadow-md ${
+                    className={`flex-1 sm:flex-initial justify-center px-3 sm:px-4 py-2 rounded-sm border transition-all flex items-center gap-1.5 sm:gap-2 text-xs font-mono font-bold cursor-pointer shadow-md ${
                       isPausedAtSentenceEnd
                         ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] hover:bg-[#B5A642]/90"
                         : "bg-[#1F132A] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1444,7 +1443,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                         ? ` (${Math.ceil(countdownRemainingMs / 1000)}s)`
                         : ""}
                     </span>
-                    <SkipForward size={14} />
+                    <SkipForward size={13} />
                   </button>
                 </div>
               </div>

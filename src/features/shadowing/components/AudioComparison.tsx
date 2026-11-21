@@ -335,11 +335,11 @@ export default function AudioComparison({
           </div>
 
           {/* Right: Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
             {/* Record / Stop Button */}
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              className={`px-3.5 py-1.5 rounded-sm text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`flex-1 sm:flex-initial justify-center px-3 sm:px-3.5 py-1.5 rounded-sm text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 isRecording
                   ? "bg-red-700 hover:bg-red-600 text-white animate-pulse"
                   : "bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A]"
@@ -353,7 +353,7 @@ export default function AudioComparison({
               ) : (
                 <>
                   <Mic size={12} />
-                  <span>{hasRecordings ? "Record New Attempt" : "Record First Try"}</span>
+                  <span>{hasRecordings ? "Record New" : "Record First Try"}</span>
                 </>
               )}
             </button>
@@ -361,7 +361,7 @@ export default function AudioComparison({
             {/* Hear Native Speaker */}
             <button
               onClick={onPlayNative}
-              className="px-3 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-xs font-mono text-[#E9E1D4] transition-all flex items-center gap-1.5 cursor-pointer"
+              className="flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-xs font-mono text-[#E9E1D4] transition-all flex items-center gap-1.5 cursor-pointer"
               title="Hear Native Dialogue from Movie"
             >
               <Volume2 size={13} className="text-[#B5A642]" />
@@ -372,7 +372,7 @@ export default function AudioComparison({
             {beforeAudioUrl && (
               <button
                 onClick={() => playAudio("before")}
-                className={`px-3 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
                   activePlaying === "before"
                     ? "bg-[#B5A642] text-[#1F132A] font-bold border-[#B5A642]"
                     : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
@@ -388,7 +388,7 @@ export default function AudioComparison({
             {latestAudioUrl && (
               <button
                 onClick={() => playAudio("latest")}
-                className={`px-3 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
                   activePlaying === "latest"
                     ? "bg-[#6B8E23] text-white font-bold border-[#6B8E23]"
                     : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#6B8E23] text-[#E9E1D4]"
