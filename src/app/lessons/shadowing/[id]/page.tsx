@@ -12,7 +12,6 @@ import {
   loadStreakData,
   recordMasteredLineProgress,
   StreakData,
-  DAILY_STREAK_TARGET,
   SubtitleSyncControl,
 } from "@/features/shadowing";
 import { WordWithMeaning } from "@/features/vocabulary";
@@ -34,7 +33,6 @@ import {
   CheckCircle2,
   Flame,
   Snowflake,
-  Target,
   Keyboard,
   Languages,
   Check,
@@ -46,10 +44,12 @@ import {
   EyeOff,
   Play,
   Pause,
-  Clock,
+  Minimize2,
+  Maximize2,
+  Square,
 } from "lucide-react";
 
-type RepeatPauseSeconds = 0 | 5 | 10 | 15;
+type VideoSize = "compact" | "normal" | "wide";
 
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -79,16 +79,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const subtitleOffsetMsRef = useRef<number>(0);
   subtitleOffsetMsRef.current = subtitleOffsetMs;
 
-  // Sentence Pause Duration: 0 (Off), 5s, 10s, 15s
-  const [repeatPauseSec, setRepeatPauseSec] = useState<RepeatPauseSeconds>(5);
-  const repeatPauseSecRef = useRef<RepeatPauseSeconds>(5);
-  repeatPauseSecRef.current = repeatPauseSec;
-
-  // Real-time Countdown timer for repeating
-  const [repeatCountdown, setRepeatCountdown] = useState<number | null>(null);
-  const repeatTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const repeatCountdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const sentenceHandledIndexRef = useRef<number | null>(null);
+  // Dynamic Video Frame Sizing: "compact" (460px) | "normal" (620px) | "wide" (100%)
+  const [videoSize, setVideoSize] = useState<VideoSize>("normal");
 
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
@@ -107,7 +99,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [masteredIndices, setMasteredIndices] = useState<Set<number>>(new Set());
   const masteredIndicesRef = useRef<Set<number>>(new Set());
 
-  // Daily Streak & Target State (with 7-Day Flame & Freeze protection)
+  // Daily Streak State
   const [streakData, setStreakData] = useState<StreakData>(loadStreakData);
   const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
 
@@ -116,19 +108,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const isLessonCompletedRef = useRef<boolean>(false);
   const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false);
   const [completionReason, setCompletionReason] = useState<"mastery" | "playthrough" | "manual">("mastery");
-
-  // Synchronously cancel countdown and timer
-  const clearRepeatTimers = useCallback(() => {
-    if (repeatTimerRef.current) {
-      clearTimeout(repeatTimerRef.current);
-      repeatTimerRef.current = null;
-    }
-    if (repeatCountdownIntervalRef.current) {
-      clearInterval(repeatCountdownIntervalRef.current);
-      repeatCountdownIntervalRef.current = null;
-    }
-    setRepeatCountdown(null);
-  }, []);
 
   // Sync focusedIndex so the focus card persists during breath pauses & silence
   useEffect(() => {
@@ -146,7 +125,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     masteredIndicesRef.current = masteredIndices;
   }, [masteredIndices]);
 
-  // Load mastered lines and bookmark state on mount
+  // Load mastered lines, bookmark state, and user's saved video size preference on mount
   useEffect(() => {
     try {
       const savedMastered = localStorage.getItem(`mastered_lesson_${id}`);
@@ -156,6 +135,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
       const savedBookmarks = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
       setIsBookmarked(savedBookmarks.some((l: { id: string }) => l.id === id));
+
+      const savedSize = localStorage.getItem("shadowing_video_size") as VideoSize | null;
+      if (savedSize === "compact" || savedSize === "normal" || savedSize === "wide") {
+        setVideoSize(savedSize);
+      }
 
       const completedLessons = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
       const isAlreadyCompleted = completedLessons.some((l: { id: string }) => l.id === id);
@@ -167,6 +151,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       console.warn("Storage read error:", e);
     }
   }, [id]);
+
+  // Change video size and persist preference
+  const handleSetVideoSize = (size: VideoSize) => {
+    setVideoSize(size);
+    try {
+      localStorage.setItem("shadowing_video_size", size);
+    } catch {}
+  };
 
   // Trigger Lesson Completion
   const triggerLessonCompletion = useCallback(
@@ -211,30 +203,24 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   }, [id]);
 
   // Seek video to specific sentence offset
-  const handleSeek = useCallback(
-    (offset: number, explicitIndex?: number) => {
-      clearRepeatTimers();
-      sentenceHandledIndexRef.current = null;
+  const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
+    if (playerRef.current) {
+      const targetSec = Math.max(0, (offset - 150) / 1000);
+      playerRef.current.currentTime(targetSec);
+      playerRef.current.play();
 
-      if (playerRef.current) {
-        const targetSec = Math.max(0, (offset - 150) / 1000);
-        playerRef.current.currentTime(targetSec);
-        playerRef.current.play();
+      const resolvedIdx =
+        typeof explicitIndex === "number"
+          ? explicitIndex
+          : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
 
-        const resolvedIdx =
-          typeof explicitIndex === "number"
-            ? explicitIndex
-            : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
-
-        if (resolvedIdx >= 0) {
-          activeIndexRef.current = resolvedIdx;
-          setActiveIndex(resolvedIdx);
-          setFocusedIndex(resolvedIdx);
-        }
+      if (resolvedIdx >= 0) {
+        activeIndexRef.current = resolvedIdx;
+        setActiveIndex(resolvedIdx);
+        setFocusedIndex(resolvedIdx);
       }
-    },
-    [clearRepeatTimers]
-  );
+    }
+  }, []);
 
   /* 1. Fetch Transcript & clean non-speech tags */
   useEffect(() => {
@@ -297,72 +283,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         }
       }
 
-      // Handle Configurable Sentence Pause (5s, 10s, 15s)
-      if (
-        !isLoopingRef.current &&
-        repeatPauseSecRef.current > 0 &&
-        curIdx >= 0 &&
-        curIdx < items.length
-      ) {
-        const currentItem = items[curIdx];
-        const nextItem = items[curIdx + 1];
-        const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
-        let endMs = currentItem.offset + duration + 100;
-        if (nextItem && nextItem.offset > currentItem.offset) {
-          endMs = Math.min(endMs, nextItem.offset - 50);
-        }
-
-        if (rawCurrentMs >= endMs) {
-          if (sentenceHandledIndexRef.current !== curIdx) {
-            sentenceHandledIndexRef.current = curIdx;
-            player.pause();
-
-            const pauseSec = repeatPauseSecRef.current;
-            setRepeatCountdown(pauseSec);
-
-            if (repeatCountdownIntervalRef.current) clearInterval(repeatCountdownIntervalRef.current);
-            if (repeatTimerRef.current) clearTimeout(repeatTimerRef.current);
-
-            let remaining = pauseSec;
-            repeatCountdownIntervalRef.current = setInterval(() => {
-              remaining -= 1;
-              if (remaining <= 0) {
-                if (repeatCountdownIntervalRef.current) {
-                  clearInterval(repeatCountdownIntervalRef.current);
-                  repeatCountdownIntervalRef.current = null;
-                }
-                setRepeatCountdown(null);
-              } else {
-                setRepeatCountdown(remaining);
-              }
-            }, 1000);
-
-            repeatTimerRef.current = setTimeout(() => {
-              if (repeatCountdownIntervalRef.current) {
-                clearInterval(repeatCountdownIntervalRef.current);
-                repeatCountdownIntervalRef.current = null;
-              }
-              setRepeatCountdown(null);
-
-              if (curIdx < items.length - 1) {
-                const nextTarget = items[curIdx + 1];
-                const targetSec = Math.max(0, (nextTarget.offset - 150) / 1000);
-                player.currentTime(targetSec);
-                player.play();
-                activeIndexRef.current = curIdx + 1;
-                setActiveIndex(curIdx + 1);
-                setFocusedIndex(curIdx + 1);
-                sentenceHandledIndexRef.current = null;
-              } else {
-                triggerLessonCompletion("playthrough");
-              }
-            }, pauseSec * 1000);
-
-            return;
-          }
-        }
-      }
-
       // Playthrough detection near end of video
       try {
         const dur = typeof player.duration === "function" ? player.duration() : 0;
@@ -396,13 +316,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     });
 
     return () => {
-      clearRepeatTimers();
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;
       }
     };
-  }, [id, triggerLessonCompletion, clearRepeatTimers]);
+  }, [id, triggerLessonCompletion]);
 
   /* 3. Handle Auto-Scroll INSIDE transcript container ONLY (Never scroll the main window) */
   useEffect(() => {
@@ -428,44 +347,35 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   // Controls Navigation
   const handlePrevLine = useCallback(() => {
     if (transcript.length === 0) return;
-    clearRepeatTimers();
     const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
     const targetIdx = baseIdx > 0 ? baseIdx - 1 : 0;
     handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, focusedIndex, handleSeek, clearRepeatTimers]);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
   const handleReplayCurrent = useCallback(() => {
     if (transcript.length === 0) return;
-    clearRepeatTimers();
     const targetIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
     const target = transcript[targetIdx];
     if (target) {
       handleSeek(target.offset, targetIdx);
     }
-  }, [transcript, activeIndex, focusedIndex, handleSeek, clearRepeatTimers]);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
   const handleNextLine = useCallback(() => {
     if (transcript.length === 0) return;
-    clearRepeatTimers();
     const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
     const targetIdx = baseIdx < transcript.length - 1 ? baseIdx + 1 : transcript.length - 1;
     handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, focusedIndex, handleSeek, clearRepeatTimers]);
+  }, [transcript, activeIndex, focusedIndex, handleSeek]);
 
   const togglePlayPause = useCallback(() => {
-    // If currently counting down in pause between sentences, Space skips the wait immediately!
-    if (repeatCountdown !== null) {
-      handleNextLine();
-      return;
-    }
-
     if (!playerRef.current) return;
     if (playerRef.current.paused()) {
       playerRef.current.play();
     } else {
       playerRef.current.pause();
     }
-  }, [repeatCountdown, handleNextLine]);
+  }, []);
 
   const handleSpeedPreset = useCallback((speed: number) => {
     if (playerRef.current) {
@@ -639,6 +549,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const displayIndex = activeIndex !== -1 ? activeIndex : (focusedIndex < transcript.length ? focusedIndex : 0);
   const currentSentence = transcript[displayIndex] || transcript[0];
 
+  // Dynamic max-width class based on user size selection
+  const videoMaxWidthClass =
+    videoSize === "compact"
+      ? "max-w-[460px]"
+      : videoSize === "wide"
+      ? "max-w-full"
+      : "max-w-[620px]";
+
   return (
     <div className="bg-[#2E2E2E] min-h-screen text-[#E9E1D4]">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6">
@@ -653,7 +571,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           userMasteredCount={masteredIndices.size}
         />
 
-        {/* 7-Day Streak & Target Tracker Modal */}
+        {/* 7-Day Streak Tracker Modal */}
         <StreakTracker
           isOpen={showStreakModal}
           isModal={true}
@@ -670,41 +588,38 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           reason={completionReason}
         />
 
-        {/* Left Column: Video + Controls + Focus Card + Audio Comparison */}
+        {/* Left Column: Video + Unified Controls + Focus Card + Audio Comparison */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Top Activity & Gamification Bar */}
+          {/* Streamlined Top Bar (Distraction-Free) */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-4 py-2.5">
             <div className="flex items-center gap-3 text-xs font-mono">
-              {/* Interactive Streak Button */}
+              {/* Streak Indicator */}
               <button
                 onClick={() => setShowStreakModal(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#2E2E2E] hover:bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#B5A642] font-semibold text-xs font-mono transition-colors cursor-pointer"
-                title="Click to view 7-Day Streak & Freeze Status"
+                title="View Streak Status"
               >
                 <Flame size={14} className={`fill-[#B5A642] ${streakData.isGoalMet ? "animate-pulse" : ""}`} />
                 <span>{streakData.streak}d Streak</span>
                 {streakData.freezes > 0 && (
-                  <span className="flex items-center gap-0.5 text-[#3B5998] text-[10px]" title="Streak Freeze Protected">
+                  <span className="flex items-center gap-0.5 text-[#3B5998] text-[10px]">
                     <Snowflake size={11} /> {streakData.freezes}
                   </span>
                 )}
               </button>
 
-              {/* Daily Target Progress */}
-              <div className="flex items-center gap-1 text-[11px] text-[#E9E1D4]/80 hidden sm:flex">
-                <Target size={13} className="text-[#B5A642]" />
-                <span>
-                  Target: {streakData.todayCount}/{DAILY_STREAK_TARGET}
+              <span className="text-[#7A7A7A] hidden sm:inline">|</span>
+
+              {/* Mastered Counter */}
+              <span className="text-[11px] font-mono text-[#E9E1D4]/80 hidden sm:inline">
+                Mastered:{" "}
+                <span className="text-[#B5A642] font-bold">
+                  {masteredIndices.size}/{transcript.length}
                 </span>
-                {streakData.isGoalMet && (
-                  <span className="px-1.5 py-0.2 bg-[#B5A642]/20 text-[#B5A642] border border-[#B5A642]/50 text-[10px] uppercase font-bold rounded-sm">
-                    Met
-                  </span>
-                )}
-              </div>
+              </span>
             </div>
 
-            {/* Quick Actions */}
+            {/* Top Right Quick Actions */}
             <div className="flex items-center gap-2">
               {isLessonCompleted ? (
                 <button
@@ -738,24 +653,24 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <span className="hidden sm:inline">Leaderboard</span>
               </button>
 
-              {/* Bookmark Lesson Button */}
+              {/* Bookmark Button */}
               <button
                 onClick={toggleBookmark}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors cursor-pointer ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors cursor-pointer ${
                   isBookmarked
                     ? "bg-[#B5A642]/20 text-[#B5A642] border-[#B5A642]/50"
                     : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/70 hover:text-[#E9E1D4]"
                 }`}
-                title="Save this lesson to your study playlist"
+                title="Save Lesson"
               >
                 <Bookmark size={13} className={isBookmarked ? "fill-[#B5A642]" : ""} />
-                <span>{isBookmarked ? "Saved" : "Save Lesson"}</span>
+                <span className="hidden sm:inline">{isBookmarked ? "Saved" : "Save"}</span>
               </button>
 
-              {/* Shortcuts Info Button */}
+              {/* Shortcuts Key Button */}
               <button
                 onClick={() => setShowShortcuts(true)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
                 title="Keyboard Shortcuts (?)"
               >
                 <Keyboard size={12} />
@@ -764,84 +679,47 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
 
-          {/* Video Player (Narrower, compact container) */}
-          <div className="relative w-full max-w-[620px] mx-auto aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black shadow-md">
-            <div ref={videoRef} data-vjs-player />
-          </div>
+          {/* Dynamic Resizable Video Player Container */}
+          <div className="space-y-1.5">
+            <div
+              className={`relative w-full ${videoMaxWidthClass} mx-auto aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black shadow-lg transition-all duration-300`}
+            >
+              <div ref={videoRef} data-vjs-player />
+            </div>
 
-          {/* Shadowing Engine Configuration Bar: Subtitle Sync + Sentence Pause + Blind Mode */}
-          <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Subtitle Sync Controller */}
-              <SubtitleSyncControl
-                offsetMs={subtitleOffsetMs}
-                onAdjustOffset={(delta) => setSubtitleOffsetMs((v) => v + delta)}
-                onResetOffset={() => setSubtitleOffsetMs(0)}
-              />
-
-              <div className="h-4 w-[1px] bg-[#3A3A3A] hidden sm:block" />
-
-              {/* Repeat Pause Selector (Off, 5s, 10s, 15s) */}
-              <div className="inline-flex items-center gap-1.5">
-                <div className="flex items-center gap-1 text-[11px] font-mono tracking-wider uppercase text-[#B5A642] select-none mr-1">
-                  <Clock size={12} className="text-[#B5A642]" />
-                  <span className="hidden sm:inline">Pause:</span>
-                </div>
-                <div className="inline-flex border border-[#3A3A3A] bg-[#2E2E2E] rounded-sm p-0.5">
-                  {([
-                    { id: 0, label: "Off", title: "No pause - continuous video" },
-                    { id: 5, label: "5s", title: "Wait 5 seconds after each sentence" },
-                    { id: 10, label: "10s", title: "Wait 10 seconds after each sentence" },
-                    { id: 15, label: "15s", title: "Wait 15 seconds after each sentence" },
-                  ] as const).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => {
-                        clearRepeatTimers();
-                        setRepeatPauseSec(opt.id);
-                        repeatPauseSecRef.current = opt.id;
-                      }}
-                      title={opt.title}
-                      className={`px-2.5 py-1 text-xs font-mono font-medium rounded-sm transition-colors cursor-pointer select-none ${
-                        repeatPauseSec === opt.id
-                          ? "bg-[#B5A642] text-[#1F132A] font-bold"
-                          : "text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:bg-[#1F132A]"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+            {/* Video Size Controller Bar (Compact | Normal | Wide) */}
+            <div className={`w-full ${videoMaxWidthClass} mx-auto flex items-center justify-between px-1 text-xs font-mono transition-all duration-300`}>
+              <span className="text-[11px] text-[#7A7A7A] uppercase tracking-wider">Video Size:</span>
+              <div className="inline-flex border border-[#3A3A3A] bg-[#1F132A] rounded-sm p-0.5">
+                {[
+                  { id: "compact", label: "Compact", icon: <Minimize2 size={11} />, desc: "Narrow (460px)" },
+                  { id: "normal", label: "Normal", icon: <Square size={11} />, desc: "Standard (620px)" },
+                  { id: "wide", label: "Wide", icon: <Maximize2 size={11} />, desc: "Expanded (100%)" },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleSetVideoSize(s.id as VideoSize)}
+                    title={s.desc}
+                    className={`px-2 py-0.5 text-[11px] font-mono flex items-center gap-1 rounded-sm transition-colors cursor-pointer ${
+                      videoSize === s.id
+                        ? "bg-[#B5A642] text-[#1F132A] font-bold"
+                        : "text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:bg-[#2E2E2E]"
+                    }`}
+                  >
+                    {s.icon}
+                    <span>{s.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-
-            {/* Blind Mode Toggle (Ear Training) */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsBlindMode((prev) => !prev);
-                  setPeekBlind(false);
-                }}
-                className={`px-2.5 py-1 rounded-sm text-xs font-mono font-medium border transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  isBlindMode
-                    ? "bg-[#8C2727] text-[#E9E1D4] border-[#8C2727] font-bold"
-                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
-                }`}
-                title="Blind Mode: Blurs transcript to test listening comprehension"
-              >
-                {isBlindMode ? <EyeOff size={12} /> : <Eye size={12} />}
-                <span>Blind Mode: {isBlindMode ? "ON" : "OFF"}</span>
-              </button>
-            </div>
           </div>
 
-          {/* Sentence Playback Interactive Control Bar */}
-          <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3.5 flex flex-wrap items-center justify-between gap-3">
-            {/* Playback Navigation Buttons */}
+          {/* Unified, Distraction-Free Playback & Practice Toolbar */}
+          <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
+            {/* Primary Navigation Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Previous Sentence (Left Arrow) */}
+              {/* Prev Line (←) */}
               <button
                 onClick={handlePrevLine}
                 disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) <= 0}
@@ -852,19 +730,17 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <span className="hidden sm:inline">Prev</span>
               </button>
 
-              {/* Play / Pause Toggle (Spacebar) */}
+              {/* Play / Pause Toggle (Space) */}
               <button
                 onClick={togglePlayPause}
                 className="p-2 sm:px-3.5 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
-                title={repeatCountdown !== null ? "Skip Pause and Play Next (Space)" : isPlaying ? "Pause (Space)" : "Play (Space)"}
+                title={isPlaying ? "Pause (Space)" : "Play (Space)"}
               >
                 {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-                <span className="hidden sm:inline">
-                  {repeatCountdown !== null ? "Next Line" : isPlaying ? "Pause" : "Play"}
-                </span>
+                <span className="hidden sm:inline">{isPlaying ? "Pause" : "Play"}</span>
               </button>
 
-              {/* Replay Current Sentence (R) */}
+              {/* Replay Current Line (R) */}
               <button
                 onClick={handleReplayCurrent}
                 disabled={transcript.length === 0}
@@ -875,7 +751,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <span>Replay</span>
               </button>
 
-              {/* Next Sentence (Right Arrow / Enter) */}
+              {/* Next Line (→ / Enter) */}
               <button
                 onClick={handleNextLine}
                 disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
@@ -886,40 +762,67 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <SkipForward size={14} />
               </button>
 
-              <div className="h-5 w-[1px] bg-[#3A3A3A] mx-1" />
+              <div className="h-5 w-[1px] bg-[#3A3A3A] mx-0.5" />
 
-              {/* Single Sentence Loop Toggle (L) */}
+              {/* Single Sentence Loop (L) */}
               <button
                 onClick={() => setIsLooping((v) => !v)}
-                className={`px-3 py-2 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 py-2 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
                   isLooping
                     ? "bg-[#3B5998] border-[#3B5998] text-[#E9E1D4] font-bold"
                     : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
                 }`}
-                title="Loop current sentence continuously for shadowing (L)"
+                title="Loop current sentence (L)"
               >
                 <Repeat size={13} className={isLooping ? "animate-spin" : ""} />
-                <span>Loop: {isLooping ? "ON" : "OFF"}</span>
+                <span>Loop {isLooping ? "ON" : "OFF"}</span>
               </button>
             </div>
 
-            {/* Speed Presets (0.75x, 1.0x, 1.25x, 1.5x) */}
-            <div className="flex items-center gap-1 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm p-1">
-              <Gauge size={13} className="text-[#B5A642] ml-1.5 hidden sm:inline" />
-              {[0.75, 1, 1.25, 1.5].map((speed) => (
-                <button
-                  key={speed}
-                  onClick={() => handleSpeedPreset(speed)}
-                  className={`px-2 py-1 rounded-sm text-[11px] font-mono transition-colors cursor-pointer ${
-                    playbackRate === speed
-                      ? "bg-[#B5A642] text-[#1F132A] font-bold"
-                      : "text-[#E9E1D4]/70 hover:text-[#E9E1D4]"
-                  }`}
-                  title={`Playback Speed: ${speed}x (Press S to cycle)`}
-                >
-                  {speed}x
-                </button>
-              ))}
+            {/* Essential Practice Modifiers (Speed, Sync, Blind Mode) */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Speed Presets */}
+              <div className="flex items-center gap-0.5 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm p-0.5">
+                {[0.75, 1, 1.25, 1.5].map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => handleSpeedPreset(speed)}
+                    className={`px-1.5 py-1 rounded-sm text-[11px] font-mono transition-colors cursor-pointer ${
+                      playbackRate === speed
+                        ? "bg-[#B5A642] text-[#1F132A] font-bold"
+                        : "text-[#E9E1D4]/70 hover:text-[#E9E1D4]"
+                    }`}
+                    title={`Playback Speed: ${speed}x`}
+                  >
+                    {speed}x
+                  </button>
+                ))}
+              </div>
+
+              {/* Subtitle Sync */}
+              <SubtitleSyncControl
+                offsetMs={subtitleOffsetMs}
+                onAdjustOffset={(delta) => setSubtitleOffsetMs((v) => v + delta)}
+                onResetOffset={() => setSubtitleOffsetMs(0)}
+              />
+
+              {/* Blind Mode Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBlindMode((prev) => !prev);
+                  setPeekBlind(false);
+                }}
+                className={`p-1.5 rounded-sm border transition-colors cursor-pointer flex items-center gap-1 text-xs font-mono ${
+                  isBlindMode
+                    ? "bg-[#8C2727] text-[#E9E1D4] border-[#8C2727] font-bold"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
+                }`}
+                title="Blind Mode (Blurs transcript for ear training)"
+              >
+                {isBlindMode ? <EyeOff size={13} /> : <Eye size={13} />}
+                <span className="hidden sm:inline">Blind</span>
+              </button>
             </div>
           </div>
 
@@ -979,44 +882,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </div>
               </div>
 
-              {/* Repetition Pause Countdown Banner */}
-              {repeatCountdown !== null && (
-                <div className="mb-4 p-3 rounded-sm bg-[#2E2E2E] border border-[#B5A642] flex flex-wrap items-center justify-between gap-2.5 animate-in fade-in">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#B5A642] animate-pulse" />
-                    <span className="text-xs font-mono font-bold text-[#B5A642] uppercase tracking-wider">
-                      REPEAT OUT LOUD:
-                    </span>
-                    <span className="text-xs font-mono font-bold text-[#E9E1D4] bg-[#1F132A] px-2 py-0.5 border border-[#3A3A3A] rounded-sm">
-                      Next line in {repeatCountdown}s
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleNextLine}
-                      className="px-3 py-1.5 rounded-sm bg-[#B5A642] hover:bg-[#c4b54e] text-[#1F132A] text-xs font-mono font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-                      title="Advance to next line now (Space / Enter)"
-                    >
-                      <span>Next Line</span>
-                      <SkipForward size={12} />
-                      <kbd className="text-[10px] bg-[#1F132A]/20 px-1 rounded-sm">Space</kbd>
-                    </button>
-
-                    <button
-                      onClick={handleReplayCurrent}
-                      className="px-2.5 py-1.5 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer"
-                      title="Replay this sentence (R)"
-                    >
-                      <RotateCcw size={12} />
-                      <span>Replay</span>
-                      <kbd className="text-[10px] bg-[#2E2E2E] px-1 rounded-sm text-[#B5A642]">R</kbd>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Large Typography Sentence (with Blind Mode blur support) */}
+              {/* Large Typography Sentence */}
               <div
                 key={displayIndex}
                 className={`transition-all duration-300 min-h-[36px] flex items-center ${
