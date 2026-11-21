@@ -1177,72 +1177,43 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           {/* Active Shadowing Sentence Focus Card & Practice Center */}
           {transcript.length > 0 && currentSentence && (
             <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-4 sm:p-5 shadow-lg space-y-4 transition-all">
-              {/* Header: Line Info & Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[#3A3A3A]/60">
-                <div className="flex items-center justify-between sm:justify-start gap-2">
-                  <span className="text-xs font-mono font-bold tracking-wider uppercase text-[#B5A642] flex items-center gap-1.5">
-                    <Volume2
-                      size={14}
-                      className={activeIndex !== -1 && isPlaying ? "text-[#B5A642] animate-pulse" : "text-[#7A7A7A]"}
-                    />
-                    <span>Line {displayIndex + 1} of {transcript.length}</span>
-                  </span>
-                  <span className="text-[11px] font-mono text-[#7A7A7A]">
-                    ({formatTime(currentSentence.offset)} - {formatTime(currentSentence.offset + (currentSentence.duration || 0))})
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                  {/* Blind Mode Peek Button */}
-                  {isBlindMode && (
-                    <button
-                      onClick={() => setPeekBlind((v) => !v)}
-                      className="px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4] transition-colors flex items-center justify-center gap-1 cursor-pointer col-span-3 sm:col-auto"
-                    >
-                      {peekBlind ? <EyeOff size={11} /> : <Eye size={11} />}
-                      <span>{peekBlind ? "Hide Text" : "Peek Text"}</span>
-                    </button>
-                  )}
-
-                  {/* Voice Test / Accent Comparison Toggle */}
+              {/* Header: Actions (Voice Test & Translate) */}
+              <div className="flex items-center justify-end gap-2 pb-2.5 border-b border-[#3A3A3A]/60">
+                {/* Blind Mode Peek Button */}
+                {isBlindMode && (
                   <button
-                    onClick={() => setShowVoiceComparison((v) => !v)}
-                    className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center justify-center gap-1 cursor-pointer ${
-                      showVoiceComparison
-                        ? "bg-[#B5A642]/20 border-[#B5A642] text-[#B5A642] font-bold"
-                        : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#B5A642] hover:border-[#B5A642]/50"
-                    }`}
-                    title="Record voice and compare accent (Before vs After)"
+                    onClick={() => setPeekBlind((v) => !v)}
+                    className="px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4] transition-colors flex items-center gap-1 cursor-pointer"
                   >
-                    <Mic size={12} className={showVoiceComparison ? "text-[#B5A642]" : "text-[#7A7A7A]"} />
-                    <span className="truncate">{showVoiceComparison ? "Close" : "Voice Test"}</span>
+                    {peekBlind ? <EyeOff size={11} /> : <Eye size={11} />}
+                    <span>{peekBlind ? "Hide Text" : "Peek Text"}</span>
                   </button>
+                )}
 
-                  {/* Translate Button */}
-                  <button
-                    onClick={handleTranslateToggle}
-                    disabled={translating}
-                    className="px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4]/80 hover:text-[#E9E1D4] transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                    title="Translate this sentence"
-                  >
-                    {translating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={12} />}
-                    <span className="truncate">{showTranslation ? "Hide" : "Translate"}</span>
-                  </button>
+                {/* Voice Test / Accent Comparison Toggle */}
+                <button
+                  onClick={() => setShowVoiceComparison((v) => !v)}
+                  className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    showVoiceComparison
+                      ? "bg-[#B5A642]/20 border-[#B5A642] text-[#B5A642] font-bold"
+                      : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#B5A642] hover:border-[#B5A642]/50"
+                  }`}
+                  title="Record voice and compare accent (Before vs After)"
+                >
+                  <Mic size={12} className={showVoiceComparison ? "text-[#B5A642]" : "text-[#7A7A7A]"} />
+                  <span>{showVoiceComparison ? "Close Voice Test" : "Voice Test"}</span>
+                </button>
 
-                  {/* Mark as Mastered button */}
-                  <button
-                    onClick={() => toggleMastered(displayIndex)}
-                    className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center justify-center gap-1 cursor-pointer ${
-                      masteredIndices.has(displayIndex)
-                        ? "bg-[#26543F] text-[#42946E] border-[#367859] font-bold"
-                        : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4]"
-                    }`}
-                    title="Mark this sentence as mastered (M)"
-                  >
-                    <Check size={11} />
-                    <span className="truncate">{masteredIndices.has(displayIndex) ? "Mastered" : "Master"}</span>
-                  </button>
-                </div>
+                {/* Translate Button */}
+                <button
+                  onClick={handleTranslateToggle}
+                  disabled={translating}
+                  className="px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4]/80 hover:text-[#E9E1D4] transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Translate this sentence"
+                >
+                  {translating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={12} />}
+                  <span>{showTranslation ? "Hide Meaning" : "Translate"}</span>
+                </button>
               </div>
 
               {/* Large Typography English Sentence (The Hero) */}
@@ -1278,175 +1249,187 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 )}
               </div>
 
-              {/* DEDICATED SHADOWING PRACTICE CONSOLE */}
-              <div className="bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm p-3 sm:p-3.5 space-y-3 shadow-inner">
-                {/* Status Bar & Timer Preset Chips */}
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                  {/* Left: Window Status */}
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${
-                        isPausedAtSentenceEnd
-                          ? isCountdownPaused
-                            ? "bg-[#B5A642]/60"
-                            : "bg-[#B5A642] animate-pulse"
-                          : isPlaying
-                          ? "bg-[#42946E] animate-pulse"
-                          : "bg-[#7A7A7A]"
-                      }`}
-                    />
-                    <span className="font-bold text-[#B5A642]">
-                      {isPausedAtSentenceEnd
-                        ? isCountdownPaused
-                          ? "Timer Paused"
-                          : autoAdvanceEnabled
-                          ? `Shadowing (${(countdownRemainingMs / 1000).toFixed(1)}s)`
-                          : "Shadowing Window"
-                        : isPlaying
-                        ? "Native Speaker Speaking..."
-                        : "Ready to Practice"}
-                    </span>
-                    <span className="text-[#E9E1D4]/60 text-[11px] hidden sm:inline">
-                      {isPausedAtSentenceEnd
-                        ? isCountdownPaused
-                          ? "Take your time! Space to resume, Enter for next."
-                          : "Speak the sentence aloud now!"
-                        : ""}
-                    </span>
-                  </div>
+              {/* DEDICATED SHADOWING PRACTICE CONSOLE - Only visible when Step Mode is ON */}
+              <AnimatePresence>
+                {autoPauseAtEnd && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm p-3 sm:p-3.5 space-y-3 shadow-inner">
+                      {/* Status Bar & Timer Preset Chips */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                        {/* Left: Window Status */}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              isPausedAtSentenceEnd
+                                ? isCountdownPaused
+                                  ? "bg-[#B5A642]/60"
+                                  : "bg-[#B5A642] animate-pulse"
+                                : isPlaying
+                                ? "bg-[#42946E] animate-pulse"
+                                : "bg-[#7A7A7A]"
+                            }`}
+                          />
+                          <span className="font-bold text-[#B5A642]">
+                            {isPausedAtSentenceEnd
+                              ? isCountdownPaused
+                                ? "Timer Paused"
+                                : autoAdvanceEnabled
+                                ? `Shadowing (${(countdownRemainingMs / 1000).toFixed(1)}s)`
+                                : "Shadowing Window"
+                              : isPlaying
+                              ? "Native Speaker Speaking..."
+                              : "Ready to Practice"}
+                          </span>
+                          <span className="text-[#E9E1D4]/60 text-[11px] hidden sm:inline">
+                            {isPausedAtSentenceEnd
+                              ? isCountdownPaused
+                                ? "Take your time! Space to resume, Enter for next."
+                                : "Speak the sentence aloud now!"
+                              : ""}
+                          </span>
+                        </div>
 
-                  {/* Right: Quick Timer Presets (3s | 5s | 7s | Manual) */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-[#7A7A7A] uppercase hidden sm:inline">Timer:</span>
-                    <div className="inline-flex border border-[#3A3A3A] bg-[#1F132A] rounded-xs p-0.5">
-                      {[3, 5, 7].map((sec) => (
-                        <button
-                          key={sec}
-                          type="button"
-                          onClick={() => {
-                            setAutoAdvanceEnabled(true);
-                            setAutoAdvanceSeconds(sec);
-                            try {
-                              localStorage.setItem("shadowing_auto_advance_enabled", "true");
-                              localStorage.setItem("shadowing_auto_advance_seconds", JSON.stringify(sec));
-                            } catch {}
-                          }}
-                          className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded-xs transition-colors cursor-pointer ${
-                            autoAdvanceEnabled && autoAdvanceSeconds === sec
-                              ? "bg-[#B5A642] text-[#1F132A]"
-                              : "text-[#E9E1D4]/60 hover:text-[#E9E1D4]"
-                          }`}
-                          title={`Auto-advance after ${sec} seconds`}
+                        {/* Right: Quick Timer Presets (3s | 5s | 7s | Manual) */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-[#7A7A7A] uppercase hidden sm:inline">Timer:</span>
+                          <div className="inline-flex border border-[#3A3A3A] bg-[#1F132A] rounded-xs p-0.5">
+                            {[3, 5, 7].map((sec) => (
+                              <button
+                                key={sec}
+                                type="button"
+                                onClick={() => {
+                                  setAutoAdvanceEnabled(true);
+                                  setAutoAdvanceSeconds(sec);
+                                  try {
+                                    localStorage.setItem("shadowing_auto_advance_enabled", "true");
+                                    localStorage.setItem("shadowing_auto_advance_seconds", JSON.stringify(sec));
+                                  } catch {}
+                                }}
+                                className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded-xs transition-colors cursor-pointer ${
+                                  autoAdvanceEnabled && autoAdvanceSeconds === sec
+                                    ? "bg-[#B5A642] text-[#1F132A]"
+                                    : "text-[#E9E1D4]/60 hover:text-[#E9E1D4]"
+                                }`}
+                                title={`Auto-advance after ${sec} seconds`}
+                              >
+                                {sec}s
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAutoAdvanceEnabled(false);
+                                try {
+                                  localStorage.setItem("shadowing_auto_advance_enabled", "false");
+                                } catch {}
+                              }}
+                              className={`px-2 py-0.5 text-[10px] font-mono rounded-xs transition-colors cursor-pointer ${
+                                !autoAdvanceEnabled
+                                  ? "bg-[#B5A642] text-[#1F132A] font-bold"
+                                  : "text-[#E9E1D4]/60 hover:text-[#E9E1D4]"
+                              }`}
+                              title="Manual mode (Wait until Next is clicked)"
+                            >
+                              Manual
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar (Clickable to Pause/Resume) */}
+                      {isPausedAtSentenceEnd && autoAdvanceEnabled && (
+                        <div
+                          onClick={() => setIsCountdownPaused((v) => !v)}
+                          title={isCountdownPaused ? "Click to resume countdown (Space)" : "Click to pause countdown (Space)"}
+                          className="w-full h-2.5 bg-[#1F132A] border border-[#3A3A3A] rounded-full overflow-hidden cursor-pointer relative"
                         >
-                          {sec}s
+                          <div
+                            className={`h-full transition-all duration-75 ease-linear ${
+                              isCountdownPaused ? "bg-[#B5A642]/50" : "bg-[#B5A642]"
+                            }`}
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  ((autoAdvanceSeconds * 1000 - countdownRemainingMs) /
+                                    (autoAdvanceSeconds * 1000)) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Primary Shadowing Action Buttons (Replay, Pause/Resume Timer, Next Line) */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#3A3A3A]/40 w-full">
+                        {/* Left: Replay Button */}
+                        <button
+                          onClick={handleReplayCurrent}
+                          disabled={transcript.length === 0}
+                          className="flex-1 sm:flex-initial justify-center px-3 sm:px-3.5 py-2 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
+                          title="Listen to this sentence again (R)"
+                        >
+                          <RotateCcw size={13} />
+                          <span>Replay (R)</span>
                         </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAutoAdvanceEnabled(false);
-                          try {
-                            localStorage.setItem("shadowing_auto_advance_enabled", "false");
-                          } catch {}
-                        }}
-                        className={`px-2 py-0.5 text-[10px] font-mono rounded-xs transition-colors cursor-pointer ${
-                          !autoAdvanceEnabled
-                            ? "bg-[#B5A642] text-[#1F132A] font-bold"
-                            : "text-[#E9E1D4]/60 hover:text-[#E9E1D4]"
-                        }`}
-                        title="Manual mode (Wait until Next is clicked)"
-                      >
-                        Manual
-                      </button>
+
+                        {/* Center: Pause / Resume Timer Button (if timer mode) */}
+                        {isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown ? (
+                          <button
+                            type="button"
+                            onClick={() => setIsCountdownPaused((v) => !v)}
+                            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-2 rounded-sm border text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isCountdownPaused
+                                ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] shadow-sm animate-pulse"
+                                : "bg-[#1F132A] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
+                            }`}
+                            title="Pause or Resume the countdown timer (Space)"
+                          >
+                            {isCountdownPaused ? <Play size={12} className="fill-[#1F132A]" /> : <Pause size={12} />}
+                            <span>
+                              {isCountdownPaused
+                                ? `Resume (${(countdownRemainingMs / 1000).toFixed(1)}s)`
+                                : `Pause (${(countdownRemainingMs / 1000).toFixed(1)}s)`}
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-mono text-[#7A7A7A] hidden md:inline">
+                            Press <kbd className="bg-[#1F132A] border border-[#3A3A3A] px-1 text-[#B5A642]">Enter</kbd> to advance
+                          </span>
+                        )}
+
+                        {/* Right: Next Line CTA */}
+                        <button
+                          onClick={handleNextLine}
+                          disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
+                          className={`flex-1 sm:flex-initial justify-center px-3 sm:px-4 py-2 rounded-sm border transition-all flex items-center gap-1.5 sm:gap-2 text-xs font-mono font-bold cursor-pointer shadow-md ${
+                            isPausedAtSentenceEnd
+                              ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] hover:bg-[#B5A642]/90"
+                              : "bg-[#1F132A] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed"
+                          }`}
+                          title="Next Sentence (Enter / →)"
+                        >
+                          <span>
+                            Next Sentence
+                            {isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown && !isCountdownPaused
+                              ? ` (${Math.ceil(countdownRemainingMs / 1000)}s)`
+                              : ""}
+                          </span>
+                          <SkipForward size={13} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Progress Bar (Clickable to Pause/Resume) */}
-                {isPausedAtSentenceEnd && autoAdvanceEnabled && (
-                  <div
-                    onClick={() => setIsCountdownPaused((v) => !v)}
-                    title={isCountdownPaused ? "Click to resume countdown (Space)" : "Click to pause countdown (Space)"}
-                    className="w-full h-2.5 bg-[#1F132A] border border-[#3A3A3A] rounded-full overflow-hidden cursor-pointer relative"
-                  >
-                    <div
-                      className={`h-full transition-all duration-75 ease-linear ${
-                        isCountdownPaused ? "bg-[#B5A642]/50" : "bg-[#B5A642]"
-                      }`}
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            ((autoAdvanceSeconds * 1000 - countdownRemainingMs) /
-                              (autoAdvanceSeconds * 1000)) *
-                              100
-                          )
-                        )}%`,
-                      }}
-                    />
-                  </div>
+                  </motion.div>
                 )}
-
-                {/* Primary Shadowing Action Buttons (Replay, Pause/Resume Timer, Next Line) */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#3A3A3A]/40 w-full">
-                  {/* Left: Replay Button */}
-                  <button
-                    onClick={handleReplayCurrent}
-                    disabled={transcript.length === 0}
-                    className="flex-1 sm:flex-initial justify-center px-3 sm:px-3.5 py-2 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
-                    title="Listen to this sentence again (R)"
-                  >
-                    <RotateCcw size={13} />
-                    <span>Replay (R)</span>
-                  </button>
-
-                  {/* Center: Pause / Resume Timer Button (if timer mode) */}
-                  {isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown ? (
-                    <button
-                      type="button"
-                      onClick={() => setIsCountdownPaused((v) => !v)}
-                      className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-2 rounded-sm border text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        isCountdownPaused
-                          ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] shadow-sm animate-pulse"
-                          : "bg-[#1F132A] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
-                      }`}
-                      title="Pause or Resume the countdown timer (Space)"
-                    >
-                      {isCountdownPaused ? <Play size={12} className="fill-[#1F132A]" /> : <Pause size={12} />}
-                      <span>
-                        {isCountdownPaused
-                          ? `Resume (${(countdownRemainingMs / 1000).toFixed(1)}s)`
-                          : `Pause (${(countdownRemainingMs / 1000).toFixed(1)}s)`}
-                      </span>
-                    </button>
-                  ) : (
-                    <span className="text-[11px] font-mono text-[#7A7A7A] hidden md:inline">
-                      Press <kbd className="bg-[#1F132A] border border-[#3A3A3A] px-1 text-[#B5A642]">Enter</kbd> to advance
-                    </span>
-                  )}
-
-                  {/* Right: Next Line CTA */}
-                  <button
-                    onClick={handleNextLine}
-                    disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
-                    className={`flex-1 sm:flex-initial justify-center px-3 sm:px-4 py-2 rounded-sm border transition-all flex items-center gap-1.5 sm:gap-2 text-xs font-mono font-bold cursor-pointer shadow-md ${
-                      isPausedAtSentenceEnd
-                        ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] hover:bg-[#B5A642]/90"
-                        : "bg-[#1F132A] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed"
-                    }`}
-                    title="Next Sentence (Enter / →)"
-                  >
-                    <span>
-                      Next Sentence
-                      {isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown && !isCountdownPaused
-                        ? ` (${Math.ceil(countdownRemainingMs / 1000)}s)`
-                        : ""}
-                    </span>
-                    <SkipForward size={13} />
-                  </button>
-                </div>
-              </div>
+              </AnimatePresence>
 
               {/* Local A/B Voice Comparison Widget - Only shown on demand when user clicks "Voice Test" */}
               <AnimatePresence>
