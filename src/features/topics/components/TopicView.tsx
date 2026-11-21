@@ -13,7 +13,7 @@ const CATEGORIES = [
   { id: "movie", label: "Movie Short Clips" },
   { id: "daily", label: "Daily English" },
   { id: "business", label: "Business English" },
-  { id: "ielts", label: "IELTS Listening" },
+  { id: "ielts", label: "IELTS & 6-Min English" },
 ];
 
 export default function TopicPage({ movieVideos, dailyVideos, business, ielts }: TopicPageProps) {
@@ -25,7 +25,7 @@ export default function TopicPage({ movieVideos, dailyVideos, business, ielts }:
       { id: "movie", title: "Movie Short Clips", link: "/Topics/shortMovies", data: movieVideos },
       { id: "daily", title: "Daily English Conversation", link: "/Topics/dailyEnglish", data: dailyVideos },
       { id: "business", title: "Business English", link: "/Topics/business", data: business },
-      { id: "ielts", title: "IELTS Listening", link: "/Topics/ielts", data: ielts },
+      { id: "ielts", title: "IELTS & 6-Minute English", link: "/Topics/ielts", data: ielts },
     ],
     [movieVideos, dailyVideos, business, ielts]
   );

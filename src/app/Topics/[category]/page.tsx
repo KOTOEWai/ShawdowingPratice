@@ -5,10 +5,10 @@ export const dynamic = "force-dynamic";
 
 // Playlist IDs mapping
 const PLAYLIST_MAP: Record<string, string> = {
-  shortMovies: "PLA7lNLNvxTzig5dqfGl8DGbLOvUI08yXg",
-  dailyEnglish: "PLlcQE71Tw-F3bKWJtsNGhHKXfjIFvo4g1",
+  shortMovies: "PLpBINXsV2ulXHX8c7P6hOa6WDYT70JZGU",
+  dailyEnglish: "PLpoe_jMVIqUcdpwR2VLP7a_QVA-VPZ07_",
   business: "PLcetZ6gSk969oGvAI0e4_PgVnlGbm64bp",
-  ielts: "PLDPk0CoasyhXHRNiB93BcH91XfJbNe3Cr",
+  ielts: "PLcetZ6gSk96-FECmH9l7Vlx5VDigvgZpt",
 };
 
 interface PageProps {
