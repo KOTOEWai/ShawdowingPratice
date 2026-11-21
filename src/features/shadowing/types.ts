@@ -4,7 +4,27 @@ export interface TranscriptItem {
   offset: number; // in milliseconds
 }
 
-export type ShadowingMode = "normal" | "echo" | "blind";
+export type ShadowingMode = "continuous" | "step" | "blind";
+
+export type WaitMode = "off" | "30%" | "50%" | "manual";
+
+export type PlaybackState =
+  | "idle"
+  | "playing"
+  | "waiting"
+  | "manual-paused"
+  | "looping"
+  | "ended";
+
+export interface SubtitleSyncSettings {
+  offsetMs: number; // in milliseconds, default 0ms
+}
+
+export interface SentenceTiming {
+  startMs: number;
+  endMs: number;
+  durationMs: number;
+}
 
 export interface StreakData {
   streak: number;
@@ -16,4 +36,3 @@ export interface StreakData {
   freezeUsedDates: string[];
   activeDates: string[];
 }
-

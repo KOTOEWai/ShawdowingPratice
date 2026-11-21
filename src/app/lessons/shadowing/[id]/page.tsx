@@ -13,6 +13,13 @@ import {
   recordMasteredLineProgress,
   StreakData,
   DAILY_STREAK_TARGET,
+  WaitModeSelector,
+  SubtitleSyncControl,
+  useShadowingEngine,
+  calculateEffectiveTime,
+  isInputField,
+  WaitMode,
+  PlaybackState,
 } from "@/features/shadowing";
 import { WordWithMeaning } from "@/features/vocabulary";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
@@ -45,7 +52,9 @@ import {
   EyeOff,
   Headphones,
   Mic,
-  Layers,
+  Play,
+  Pause,
+  Clock,
 } from "lucide-react";
 
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
@@ -59,31 +68,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const transcriptRef = useRef<TranscriptItem[]>([]);
 
-  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
-
-  // Sync focusedIndex so the focus card persists during breath pauses & silence
-  useEffect(() => {
-    if (activeIndex !== -1) {
-      setFocusedIndex(activeIndex);
-    }
-  }, [activeIndex]);
   const [loading, setLoading] = useState(true);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
-  const [isLooping, setIsLooping] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
 
-  // Shadowing Modes: 'step' (ShadowingEnglish Listen & Repeat) | 'continuous' (Speak Along) | 'blind' (Ear Training)
-  const [shadowingMode, setShadowingMode] = useState<"continuous" | "step" | "blind">("step");
-  const shadowingModeRef = useRef<"continuous" | "step" | "blind">("step");
-  shadowingModeRef.current = shadowingMode;
-
-  // Step-by-Step Paused status (ShadowingEnglish signature pause at sentence end)
-  const [isStepPaused, setIsStepPaused] = useState<boolean>(false);
-  const isStepPausedRef = useRef<boolean>(false);
-
+  // Blind Mode (Ear Training blur toggle)
+  const [isBlindMode, setIsBlindMode] = useState<boolean>(false);
   const [peekBlind, setPeekBlind] = useState<boolean>(false);
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
 
@@ -94,101 +87,19 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   // Mastered Lines State (Persisted in localStorage)
   const [masteredIndices, setMasteredIndices] = useState<Set<number>>(new Set());
+  const masteredIndicesRef = useRef<Set<number>>(new Set());
 
   // Daily Streak & Target State (with 7-Day Flame & Freeze protection)
   const [streakData, setStreakData] = useState<StreakData>(loadStreakData);
   const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
 
-  // Lesson Completion State (Method 1: >=80% Mastery + Method 2: Video Playthrough)
+  // Lesson Completion State
   const [isLessonCompleted, setIsLessonCompleted] = useState<boolean>(false);
   const isLessonCompletedRef = useRef<boolean>(false);
   const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false);
   const [completionReason, setCompletionReason] = useState<"mastery" | "playthrough" | "manual">("mastery");
-  const masteredIndicesRef = useRef<Set<number>>(new Set());
 
-  const isLoopingRef = useRef(false);
-  isLoopingRef.current = isLooping;
-
-  const activeIndexRef = useRef(-1);
-  activeIndexRef.current = activeIndex;
-
-  // Sync transcriptRef & masteredIndicesRef
-  useEffect(() => {
-    transcriptRef.current = transcript;
-  }, [transcript]);
-
-  useEffect(() => {
-    masteredIndicesRef.current = masteredIndices;
-  }, [masteredIndices]);
-
-  // Load Saved Lessons, Mastered sentences & Completion status from localStorage
-  useEffect(() => {
-    if (!id) return;
-    try {
-      const saved = localStorage.getItem(`mastered_lesson_${id}`);
-      if (saved) {
-        const arr = JSON.parse(saved);
-        if (Array.isArray(arr)) {
-          setMasteredIndices(new Set(arr));
-        }
-      }
-
-      // Check bookmark
-      const savedLessons = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
-      setIsBookmarked(savedLessons.some((l: { id: string }) => l.id === id));
-
-      // Check if already completed
-      const completedList = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
-      const alreadyDone = completedList.some((l: { id: string }) => l.id === id);
-      if (alreadyDone) {
-        setIsLessonCompleted(true);
-        isLessonCompletedRef.current = true;
-      }
-
-      // Load streak info with Freeze auto-evaluation
-      const currentStreak = loadStreakData();
-      setStreakData(currentStreak);
-
-      // Track active practice seconds (for real Hours Studied stats)
-      const studyInterval = setInterval(() => {
-        try {
-          const sec = parseInt(localStorage.getItem("shadowing_study_seconds") || "0", 10);
-          localStorage.setItem("shadowing_study_seconds", String(sec + 10));
-        } catch {}
-      }, 10000);
-
-      return () => clearInterval(studyInterval);
-    } catch (e) {
-      console.warn("Storage load error:", e);
-    }
-  }, [id]);
-
-  /**
-   * Seek with pre-roll buffer (150ms lead-in) so speech starts naturally.
-   */
-  const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
-    isStepPausedRef.current = false;
-    setIsStepPaused(false);
-
-    if (playerRef.current) {
-      const targetSec = Math.max(0, (offset - 150) / 1000);
-      playerRef.current.currentTime(targetSec);
-      playerRef.current.play();
-
-      const resolvedIdx =
-        typeof explicitIndex === "number"
-          ? explicitIndex
-          : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
-
-      if (resolvedIdx >= 0) {
-        activeIndexRef.current = resolvedIdx;
-        setActiveIndex(resolvedIdx);
-        setFocusedIndex(resolvedIdx);
-      }
-    }
-  }, []);
-
-  // Trigger Lesson Completion (Method 1: >=80% Mastery, Method 2: Video Playthrough, or Manual)
+  // Trigger Lesson Completion
   const triggerLessonCompletion = useCallback(
     (reason: "mastery" | "playthrough" | "manual") => {
       if (isLessonCompletedRef.current) return;
@@ -217,7 +128,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     [id]
   );
 
-  // Uncomplete Lesson (Reset status and remove from completed records)
+  // Uncomplete Lesson
   const uncompleteLesson = useCallback(() => {
     setIsLessonCompleted(false);
     isLessonCompletedRef.current = false;
@@ -230,7 +141,78 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     }
   }, [id]);
 
-  /* 1. Fetch Transcript & filter out [Music], [Applause], ♪ */
+  // Centralized Playback Engine Hook
+  const {
+    playbackState,
+    setPlaybackState,
+    waitMode,
+    setWaitMode,
+    isLooping,
+    toggleLoop,
+    subtitleOffsetMs,
+    adjustSubtitleOffset,
+    resetSubtitleOffset,
+    activeIndex,
+    setActiveIndex,
+    waitDurationMs,
+    waitRemainingMs,
+    evaluatePlaybackPosition,
+    seekToSentence,
+    handleReplayCurrent,
+    handleNextLine,
+    handlePrevLine,
+    togglePlayPause,
+    cancelWaitTimers,
+  } = useShadowingEngine({
+    transcript,
+    playerRef,
+    onActiveIndexChange: (idx) => {
+      if (idx !== -1) {
+        setFocusedIndex(idx);
+      }
+    },
+    onLessonComplete: triggerLessonCompletion,
+    initialWaitMode: "30%",
+  });
+
+  const subtitleOffsetMsRef = useRef<number>(0);
+  subtitleOffsetMsRef.current = subtitleOffsetMs;
+
+  const activeIndexRef = useRef<number>(-1);
+  activeIndexRef.current = activeIndex;
+
+  // Sync transcriptRef & masteredIndicesRef
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    masteredIndicesRef.current = masteredIndices;
+  }, [masteredIndices]);
+
+  // Load mastered lines and bookmark state on mount
+  useEffect(() => {
+    try {
+      const savedMastered = localStorage.getItem(`mastered_lesson_${id}`);
+      if (savedMastered) {
+        setMasteredIndices(new Set(JSON.parse(savedMastered)));
+      }
+
+      const savedBookmarks = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
+      setIsBookmarked(savedBookmarks.some((l: { id: string }) => l.id === id));
+
+      const completedLessons = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
+      const isAlreadyCompleted = completedLessons.some((l: { id: string }) => l.id === id);
+      if (isAlreadyCompleted) {
+        setIsLessonCompleted(true);
+        isLessonCompletedRef.current = true;
+      }
+    } catch (e) {
+      console.warn("Storage read error:", e);
+    }
+  }, [id]);
+
+  /* 1. Fetch Transcript & clean non-speech tags */
   useEffect(() => {
     async function fetchTranscript() {
       try {
@@ -251,7 +233,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     if (id) fetchTranscript();
   }, [id]);
 
-  /* 2. Init video.js (Run only once per id) */
+  /* 2. Init video.js */
   useEffect(() => {
     if (!videoRef.current || !id) return;
 
@@ -263,58 +245,21 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       controls: true,
       autoplay: false,
       fluid: true,
-      playbackRates: [0.5, 0.75, 1, 1.25, 1.5],
+      playbackRates: [0.75, 1, 1.25, 1.5],
       techOrder: ["youtube"],
       sources: [{ src: `https://www.youtube.com/watch?v=${id}`, type: "video/youtube" }],
     }));
 
     const syncTranscript = () => {
       if (!player) return;
-      const currentMs = (player.currentTime() || 0) * 1000;
+      const rawCurrentMs = (player.currentTime() || 0) * 1000;
       const items = transcriptRef.current;
       if (!items || items.length === 0) return;
 
-      // Handle Sentence Loop Mode
-      if (isLoopingRef.current && activeIndexRef.current !== -1) {
-        const currentItem = items[activeIndexRef.current];
-        if (currentItem) {
-          const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
-          const endMs = currentItem.offset + duration + 100;
-          const startSec = Math.max(0, (currentItem.offset - 150) / 1000);
+      // Evaluate sentence boundaries & wait mode logic
+      evaluatePlaybackPosition(rawCurrentMs);
 
-          if (currentMs >= endMs) {
-            player.currentTime(startSec);
-            return;
-          }
-        }
-      }
-
-      // Handle Step-by-Step Mode (ShadowingEnglish: Listen & Repeat auto-pause at line end)
-      if (
-        shadowingModeRef.current === "step" &&
-        !isStepPausedRef.current &&
-        activeIndexRef.current !== -1
-      ) {
-        const curIdx = activeIndexRef.current;
-        const currentItem = items[curIdx];
-        if (currentItem) {
-          const nextItem = items[curIdx + 1];
-          const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
-          let endMs = currentItem.offset + duration + 100;
-          if (nextItem && nextItem.offset > currentItem.offset) {
-            endMs = Math.min(endMs, nextItem.offset - 50);
-          }
-
-          if (currentMs >= endMs) {
-            isStepPausedRef.current = true;
-            setIsStepPaused(true);
-            player.pause();
-            return;
-          }
-        }
-      }
-
-      // Method 2: Video Playthrough detection near end of lesson
+      // Playthrough detection near end of video
       try {
         const dur = typeof player.duration === "function" ? player.duration() : 0;
         const cur = typeof player.currentTime === "function" ? player.currentTime() : 0;
@@ -323,19 +268,32 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         }
       } catch {}
 
-      // Sync active line
-      const newIndex = findActiveTranscriptIndex(items, currentMs);
+      // Calculate effective time with subtitle offset for UI transcript highlighting ONLY
+      const effectiveMs = calculateEffectiveTime(rawCurrentMs, subtitleOffsetMsRef.current);
+      const newIndex = findActiveTranscriptIndex(items, effectiveMs);
+
       if (newIndex !== -1 && newIndex !== activeIndexRef.current) {
-        activeIndexRef.current = newIndex;
+        setActiveIndex(newIndex);
       }
-      setActiveIndex((prev) => (prev !== newIndex ? newIndex : prev));
     };
 
     player.on("timeupdate", syncTranscript);
     player.on("seeked", syncTranscript);
+    player.on("play", () => {
+      setPlaybackState(isLooping ? "looping" : "playing");
+    });
+    player.on("pause", () => {
+      // If we are not currently in a wait or manual-pause state, transition to idle
+      setPlaybackState((current) => {
+        if (current === "waiting" || current === "manual-paused") {
+          return current;
+        }
+        return "idle";
+      });
+    });
     player.on("ended", () => {
-      // Method 2: On video end, mark lesson complete!
       triggerLessonCompletion("playthrough");
+      setPlaybackState("ended");
     });
     player.on("ratechange", () => {
       const rate = player.playbackRate();
@@ -343,12 +301,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     });
 
     return () => {
+      cancelWaitTimers();
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;
       }
     };
-  }, [id, handleSeek, triggerLessonCompletion]);
+  }, [id, evaluatePlaybackPosition, setActiveIndex, triggerLessonCompletion, cancelWaitTimers, isLooping, setPlaybackState]);
 
   /* 3. Handle Auto-Scroll INSIDE transcript container ONLY (Never scroll the main window) */
   useEffect(() => {
@@ -371,29 +330,26 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     setSentenceTranslation(null);
   }, [activeIndex, autoScroll]);
 
-  const handlePrevLine = useCallback(() => {
-    if (transcript.length === 0) return;
-    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
-    const targetIdx = baseIdx > 0 ? baseIdx - 1 : 0;
-    handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, focusedIndex, handleSeek]);
+  // Seek handler from clicking transcript items
+  const handleSeek = useCallback(
+    (offset: number, explicitIndex?: number) => {
+      const resolvedIdx =
+        typeof explicitIndex === "number"
+          ? explicitIndex
+          : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
 
-  const handleReplayCurrent = useCallback(() => {
-    if (transcript.length === 0) return;
-    const targetIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
-    const target = transcript[targetIdx];
-    if (target) {
-      handleSeek(target.offset, targetIdx);
-    }
-  }, [transcript, activeIndex, focusedIndex, handleSeek]);
+      if (resolvedIdx >= 0) {
+        seekToSentence(resolvedIdx);
+      } else if (playerRef.current) {
+        const targetSec = Math.max(0, (offset - 150) / 1000);
+        playerRef.current.currentTime(targetSec);
+        playerRef.current.play();
+      }
+    },
+    [seekToSentence]
+  );
 
-  const handleNextLine = useCallback(() => {
-    if (transcript.length === 0) return;
-    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
-    const targetIdx = baseIdx < transcript.length - 1 ? baseIdx + 1 : transcript.length - 1;
-    handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, focusedIndex, handleSeek]);
-
+  // Playback Speed Controls
   const handleSpeedPreset = useCallback((speed: number) => {
     if (playerRef.current) {
       playerRef.current.playbackRate(speed);
@@ -402,7 +358,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   }, []);
 
   const cycleSpeed = useCallback(() => {
-    const speeds = [0.75, 1, 1.25];
+    const speeds = [0.75, 1, 1.25, 1.5];
     const nextSpeed = speeds[(speeds.indexOf(playbackRate) + 1) % speeds.length];
     handleSpeedPreset(nextSpeed);
   }, [playbackRate, handleSpeedPreset]);
@@ -426,12 +382,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             const newMasteredCount = next.size;
             const totalLines = transcriptRef.current.length;
 
-            // Method 1: If user reaches >=80% mastery of all lines, complete lesson!
             if (totalLines > 0 && newMasteredCount / totalLines >= 0.8) {
               triggerLessonCompletion("mastery");
             }
 
-            // Advance Streak progress (Daily target of 3 lines + freeze protection)
             setStreakData((prevData) => {
               const { updatedData } = recordMasteredLineProgress(prevData);
               return updatedData;
@@ -502,39 +456,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     }
   };
 
-  /* 4. Power-User Keyboard Shortcuts */
+  /* 4. Keyboard Shortcuts with Input Field Protection */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (document.activeElement?.tagName || "").toUpperCase();
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (isInputField(e.target)) return;
 
       if (e.code === "Space") {
         e.preventDefault();
-        // ShadowingEnglish Step Mode: If paused at line end, Space advances to the next sentence!
-        if (shadowingModeRef.current === "step" && isStepPausedRef.current) {
-          handleNextLine();
-          return;
-        }
-
-        if (playerRef.current) {
-          if (playerRef.current.paused()) {
-            playerRef.current.play();
-          } else {
-            playerRef.current.pause();
-          }
-        }
+        togglePlayPause();
       } else if (e.key === "Enter") {
-        if (shadowingModeRef.current === "step" && isStepPausedRef.current) {
-          e.preventDefault();
-          handleNextLine();
-          return;
-        }
+        e.preventDefault();
+        handleNextLine();
       } else if (e.key === "r" || e.key === "R") {
         e.preventDefault();
         handleReplayCurrent();
       } else if (e.key === "l" || e.key === "L") {
         e.preventDefault();
-        setIsLooping((v) => !v);
+        toggleLoop();
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         handlePrevLine();
@@ -556,7 +494,17 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleReplayCurrent, handlePrevLine, handleNextLine, activeIndex, focusedIndex, toggleMastered, cycleSpeed]);
+  }, [
+    togglePlayPause,
+    handleNextLine,
+    handleReplayCurrent,
+    toggleLoop,
+    handlePrevLine,
+    activeIndex,
+    focusedIndex,
+    toggleMastered,
+    cycleSpeed,
+  ]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -571,8 +519,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const displayIndex = activeIndex !== -1 ? activeIndex : (focusedIndex < transcript.length ? focusedIndex : 0);
   const currentSentence = transcript[displayIndex] || transcript[0];
 
+  const isVideoPlaying = playbackState === "playing" || playbackState === "looping";
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6 bg-[#13111C] min-h-screen">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 sm:p-6 bg-[#2E2E2E] min-h-screen text-[#E9E1D4]">
       {/* Keyboard Shortcuts Modal */}
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
@@ -584,59 +534,74 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         userMasteredCount={masteredIndices.size}
       />
 
-      {/* Left Column: Video + Controls + Focus Card + Audio Comparison */}
+      {/* 7-Day Streak & Target Tracker Modal */}
+      <StreakTracker
+        isOpen={showStreakModal}
+        isModal={true}
+        onClose={() => setShowStreakModal(false)}
+        data={streakData}
+      />
+
+      {/* Lesson Complete Celebration Modal */}
+      <LessonCompleteModal
+        isOpen={showCompletionModal}
+        onClose={() => setShowCompletionModal(false)}
+        totalLines={transcript.length}
+        masteredCount={masteredIndices.size}
+        reason={completionReason}
+      />
+
+      {/* Left Column: Video + Wait Controls + Focus Card + Audio Comparison */}
       <div className="lg:col-span-2 space-y-4">
         {/* Top Activity & Gamification Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#33323E] rounded-xl px-4 py-2.5 shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-4 py-2.5 shadow-none">
           <div className="flex items-center gap-3 text-xs font-mono">
-            {/* Interactive Streak Button with Flame & Freeze */}
+            {/* Interactive Streak Button */}
             <button
               onClick={() => setShowStreakModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#181622] hover:bg-[#1F132A] border border-[#33323E] hover:border-amber-500/50 text-amber-400 font-semibold text-xs font-mono transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#2E2E2E] hover:bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#B5A642] font-semibold text-xs font-mono transition-colors cursor-pointer"
               title="Click to view 7-Day Streak & Freeze Status"
             >
-              <Flame size={15} className={`fill-amber-400 ${streakData.isGoalMet ? "animate-pulse" : ""}`} />
+              <Flame size={14} className={`fill-[#B5A642] ${streakData.isGoalMet ? "animate-pulse" : ""}`} />
               <span>{streakData.streak}d Streak</span>
               {streakData.freezes > 0 && (
-                <span className="text-[10px] text-cyan-400 flex items-center gap-0.5 ml-1" title={`${streakData.freezes} Streak Freeze available`}>
-                  <Snowflake size={11} />
-                  {streakData.freezes}
+                <span className="flex items-center gap-0.5 text-[#3B5998] text-[10px]" title="Streak Freeze Protected">
+                  <Snowflake size={11} /> {streakData.freezes}
                 </span>
               )}
             </button>
 
-            <div className="h-3.5 w-px bg-[#33323E]" />
-
-            {/* Daily Goal: Master 3 lines per day */}
-            <div
-              className="flex items-center gap-1.5 text-xs font-mono cursor-pointer"
-              onClick={() => setShowStreakModal(true)}
-              title="Daily Goal: Master 3 lines today to ignite flame"
-            >
-              <Target size={14} className={streakData.isGoalMet ? "text-[#42946E]" : "text-[#A667E4]"} />
-              <span className={streakData.isGoalMet ? "text-[#42946E] font-medium" : "text-[#DCDCE0]"}>
-                Today: {streakData.todayCount}/{DAILY_STREAK_TARGET}
+            {/* Daily Target Progress */}
+            <div className="flex items-center gap-1 text-[11px] text-[#E9E1D4]/80 hidden sm:flex">
+              <Target size={13} className="text-[#B5A642]" />
+              <span>
+                Target: {streakData.todayCount}/{DAILY_STREAK_TARGET}
               </span>
+              {streakData.isGoalMet && (
+                <span className="px-1.5 py-0.2 bg-[#B5A642]/20 text-[#B5A642] border border-[#B5A642]/50 text-[10px] uppercase font-bold rounded-sm">
+                  Met
+                </span>
+              )}
             </div>
           </div>
 
+          {/* Quick Actions */}
           <div className="flex items-center gap-2">
-            {/* Completion Status Badge / Button with Uncomplete action */}
             {isLessonCompleted ? (
               <button
                 onClick={uncompleteLesson}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#26543F]/80 hover:bg-rose-950/70 border border-[#367859] hover:border-rose-500/50 text-[#42946E] hover:text-rose-300 text-[11px] font-mono font-medium transition-all cursor-pointer group"
-                title="Lesson Done! Click to mark as uncompleted / reset"
+                className="group flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#B5A642]/20 border border-[#B5A642] text-[11px] font-mono text-[#B5A642] hover:bg-[#8C2727]/30 hover:border-[#8C2727] hover:text-[#E9E1D4] transition-colors cursor-pointer"
+                title="Click to reset lesson completed status"
               >
                 <CheckCircle2 size={13} className="group-hover:hidden" />
-                <RotateCcw size={12} className="hidden group-hover:inline text-rose-400" />
+                <RotateCcw size={12} className="hidden group-hover:inline text-[#8C2727]" />
                 <span className="group-hover:hidden">Lesson Done</span>
                 <span className="hidden group-hover:inline">Uncomplete</span>
               </button>
             ) : (
               <button
                 onClick={() => triggerLessonCompletion("manual")}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#42946E] text-[11px] font-mono text-[#A1A0AB] hover:text-[#42946E] transition-all cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#B5A642] transition-colors cursor-pointer"
                 title="Mark this lesson as done"
               >
                 <Check size={12} />
@@ -647,158 +612,171 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             {/* Leaderboard Button */}
             <button
               onClick={() => setShowLeaderboard(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#181622] border border-[#33323E] text-[11px] font-mono text-[#DCDCE0] hover:text-white hover:border-[#853BCE]/50 transition-all cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[11px] font-mono text-[#E9E1D4] hover:text-[#B5A642] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
               title="View Leaderboard"
             >
-              <Trophy size={13} className="text-amber-400" />
+              <Trophy size={13} className="text-[#B5A642]" />
               <span className="hidden sm:inline">Leaderboard</span>
             </button>
 
             {/* Bookmark Lesson Button */}
             <button
               onClick={toggleBookmark}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-mono transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors cursor-pointer ${
                 isBookmarked
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                  : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white"
+                  ? "bg-[#B5A642]/20 text-[#B5A642] border-[#B5A642]/50"
+                  : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/70 hover:text-[#E9E1D4]"
               }`}
               title="Save this lesson to your study playlist"
             >
-              <Bookmark size={13} className={isBookmarked ? "fill-amber-400" : ""} />
+              <Bookmark size={13} className={isBookmarked ? "fill-[#B5A642]" : ""} />
               <span>{isBookmarked ? "Saved" : "Save Lesson"}</span>
             </button>
 
             {/* Shortcuts Info Button */}
             <button
               onClick={() => setShowShortcuts(true)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#181622] border border-[#33323E] text-[11px] font-mono text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[11px] font-mono text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/50 transition-colors cursor-pointer"
               title="Keyboard Shortcuts (?)"
             >
               <Keyboard size={12} />
-              <kbd className="text-[10px] bg-[#13111C] px-1 rounded text-[#A667E4]">?</kbd>
+              <kbd className="text-[10px] bg-[#1F132A] px-1 rounded-sm text-[#B5A642] font-bold">?</kbd>
             </button>
           </div>
         </div>
 
         {/* Video Player */}
-        <div className="relative aspect-video rounded-xl overflow-hidden border border-[#33323E] bg-black shadow-2xl">
+        <div className="relative aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black">
           <div ref={videoRef} data-vjs-player />
         </div>
 
-        {/* Shadowing Methodology Mode Bar (ShadowingEnglish style with Grunge Rock aesthetic) */}
-        <div className="bg-[#181622] border border-[#33323E] rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-[#A1A0AB] font-semibold pl-1">
-            Shadowing Mode:
-          </span>
+        {/* Shadowing Engine Configuration Bar: Wait Mode + Subtitle Sync + Blind Mode */}
+        <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Wait Mode Selector */}
+            <WaitModeSelector
+              currentMode={waitMode}
+              onSelectMode={setWaitMode}
+            />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              {[
-                {
-                  id: "step",
-                  label: "Step-by-Step",
-                  icon: <Layers size={12} />,
-                  title: "ShadowingEnglish: Auto-pauses at each line end. Press Space or Next to advance",
-                },
-                {
-                  id: "continuous",
-                  label: "Speak Along",
-                  icon: <Headphones size={12} />,
-                  title: "Continuous playback for fluent speaking along with the speaker",
-                },
-                {
-                  id: "blind",
-                  label: "Blind (Ear Training)",
-                  icon: <EyeOff size={12} />,
-                  title: "Blurs subtitles to train your listening comprehension first",
-                },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    const mode = m.id as "continuous" | "step" | "blind";
-                    setShadowingMode(mode);
-                    shadowingModeRef.current = mode;
-                    isStepPausedRef.current = false;
-                    setIsStepPaused(false);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer active:translate-y-px ${
-                    shadowingMode === m.id
-                      ? "bg-[#B5A642] text-[#2E2E2E] font-bold shadow-md shadow-[#B5A642]/20"
-                      : "bg-[#13111C] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#B5A642]/40"
-                  }`}
-                  title={m.title}
-                >
-                  {m.icon}
-                  <span>{m.label}</span>
-                </button>
-              ))}
-            </div>
+            <div className="h-4 w-[1px] bg-[#3A3A3A] hidden sm:block" />
+
+            {/* Subtitle Sync Controller (Affects transcript only) */}
+            <SubtitleSyncControl
+              offsetMs={subtitleOffsetMs}
+              onAdjustOffset={adjustSubtitleOffset}
+              onResetOffset={resetSubtitleOffset}
+            />
+          </div>
+
+          {/* Blind Mode Toggle (Ear Training) */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setIsBlindMode((prev) => !prev);
+                setPeekBlind(false);
+              }}
+              className={`px-2.5 py-1 rounded-sm text-xs font-mono font-medium border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                isBlindMode
+                  ? "bg-[#8C2727] text-[#E9E1D4] border-[#8C2727] font-bold"
+                  : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/70 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
+              }`}
+              title="Blind Mode: Blurs transcript to test listening comprehension"
+            >
+              {isBlindMode ? <EyeOff size={12} /> : <Eye size={12} />}
+              <span>Blind Mode: {isBlindMode ? "ON" : "OFF"}</span>
+            </button>
           </div>
         </div>
 
-        {/* Shadowing Interactive Control Bar */}
-        <div className="bg-[#1F132A] border border-[#33323E] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
-          {/* Playback Navigation */}
+        {/* Sentence Playback Interactive Control Bar */}
+        <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3.5 flex flex-wrap items-center justify-between gap-3">
+          {/* Playback Navigation Buttons */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Previous Sentence (Left Arrow) */}
             <button
               onClick={handlePrevLine}
               disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) <= 0}
-              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+              className="p-2 sm:px-3 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 text-xs font-mono cursor-pointer"
               title="Previous Line (←)"
             >
               <SkipBack size={14} />
               <span className="hidden sm:inline">Prev</span>
             </button>
 
+            {/* Play / Pause Toggle (Spacebar) */}
+            <button
+              onClick={togglePlayPause}
+              className="p-2 sm:px-3.5 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
+              title={
+                playbackState === "waiting" || playbackState === "manual-paused"
+                  ? "Advance to Next Line (Space)"
+                  : isVideoPlaying
+                  ? "Pause (Space)"
+                  : "Play (Space)"
+              }
+            >
+              {isVideoPlaying ? <Pause size={14} /> : <Play size={14} />}
+              <span className="hidden sm:inline">
+                {playbackState === "waiting" || playbackState === "manual-paused"
+                  ? "Continue"
+                  : isVideoPlaying
+                  ? "Pause"
+                  : "Play"}
+              </span>
+            </button>
+
+            {/* Replay Current Sentence (R) */}
             <button
               onClick={handleReplayCurrent}
               disabled={transcript.length === 0}
-              className="p-2 sm:px-3.5 sm:py-2 rounded-lg bg-[#853BCE]/20 border border-[#853BCE]/40 text-white hover:bg-[#853BCE] hover:border-[#853BCE] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium shadow-md shadow-[#853BCE]/15 cursor-pointer"
+              className="p-2 sm:px-3.5 sm:py-2 rounded-sm bg-[#B5A642] text-[#1F132A] hover:bg-[#B5A642]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
               title="Replay Current Line (R)"
             >
               <RotateCcw size={14} />
               <span>Replay</span>
             </button>
 
+            {/* Next Sentence (Right Arrow / Enter) */}
             <button
               onClick={handleNextLine}
               disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
-              className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#181622] border border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
-              title="Next Line (→)"
+              className="p-2 sm:px-3 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 text-xs font-mono cursor-pointer"
+              title="Next Line (→ / Enter)"
             >
               <span className="hidden sm:inline">Next</span>
               <SkipForward size={14} />
             </button>
 
-            <div className="h-5 w-[1px] bg-[#33323E] mx-1" />
+            <div className="h-5 w-[1px] bg-[#3A3A3A] mx-1" />
 
-            {/* Loop Toggle */}
+            {/* Single Sentence Loop Toggle (L) */}
             <button
-              onClick={() => setIsLooping((v) => !v)}
-              className={`px-3 py-2 rounded-lg border text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+              onClick={toggleLoop}
+              className={`px-3 py-2 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
                 isLooping
-                  ? "bg-[#853BCE] border-[#A667E4] text-white shadow-md shadow-[#853BCE]/30"
-                  : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white hover:border-[#853BCE]/40"
+                  ? "bg-[#3B5998] border-[#3B5998] text-[#E9E1D4] font-bold"
+                  : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
               }`}
               title="Loop current sentence continuously for shadowing (L)"
             >
               <Repeat size={13} className={isLooping ? "animate-spin" : ""} />
-              <span>Loop {isLooping ? "ON" : "OFF"}</span>
+              <span>Loop: {isLooping ? "ON" : "OFF"}</span>
             </button>
           </div>
 
-          {/* Speed Presets */}
-          <div className="flex items-center gap-1.5 bg-[#181622] border border-[#33323E] rounded-lg p-1">
-            <Gauge size={13} className="text-[#A1A0AB] ml-1.5 hidden sm:inline" />
-            {[0.75, 1, 1.25].map((speed) => (
+          {/* Speed Presets (0.75x, 1.0x, 1.25x, 1.5x) */}
+          <div className="flex items-center gap-1 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm p-1">
+            <Gauge size={13} className="text-[#B5A642] ml-1.5 hidden sm:inline" />
+            {[0.75, 1, 1.25, 1.5].map((speed) => (
               <button
                 key={speed}
                 onClick={() => handleSpeedPreset(speed)}
-                className={`px-2 py-1 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                className={`px-2 py-1 rounded-sm text-[11px] font-mono transition-colors cursor-pointer ${
                   playbackRate === speed
-                    ? "bg-[#853BCE] text-white font-semibold"
-                    : "text-[#A1A0AB] hover:text-white"
+                    ? "bg-[#B5A642] text-[#1F132A] font-bold"
+                    : "text-[#E9E1D4]/70 hover:text-[#E9E1D4]"
                 }`}
                 title={`Playback Speed: ${speed}x (Press S to cycle)`}
               >
@@ -808,32 +786,32 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
 
-        {/* Active Shadowing Sentence Focus Card - Persistent Container (Zero layout shift / No jumping) */}
+        {/* Active Shadowing Sentence Focus Card (Zero layout shift / Persistent height) */}
         {transcript.length > 0 && currentSentence && (
-          <div className="bg-[#1F132A] border border-[#33323E] rounded-xl p-5 shadow-xl transition-all">
+          <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-5 transition-all">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono tracking-wider uppercase text-[#A667E4] font-semibold flex items-center gap-1.5">
+                <span className="text-[11px] font-mono tracking-wider uppercase text-[#B5A642] font-bold flex items-center gap-1.5">
                   <Volume2
                     size={13}
-                    className={activeIndex !== -1 ? "text-[#A667E4] animate-pulse" : "text-[#6C6B7B]"}
+                    className={activeIndex !== -1 ? "text-[#B5A642] animate-pulse" : "text-[#7A7A7A]"}
                   />{" "}
                   {activeIndex !== -1 ? "Active Sentence" : "Current Focus"}
                 </span>
-                <span className="text-xs font-mono text-[#6C6B7B]">
+                <span className="text-xs font-mono text-[#7A7A7A]">
                   Line {displayIndex + 1} of {transcript.length}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 {/* Blind Mode Peek Button */}
-                {shadowingMode === "blind" && (
+                {isBlindMode && (
                   <button
                     onClick={() => setPeekBlind((v) => !v)}
-                    className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#DCDCE0] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4] transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     {peekBlind ? <EyeOff size={12} /> : <Eye size={12} />}
-                    <span>{peekBlind ? "Hide" : "Peek"}</span>
+                    <span>{peekBlind ? "Hide Text" : "Peek Text"}</span>
                   </button>
                 )}
 
@@ -841,7 +819,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <button
                   onClick={handleTranslateToggle}
                   disabled={translating}
-                  className="px-2.5 py-1 rounded bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[11px] font-mono text-[#A1A0AB] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[11px] font-mono text-[#E9E1D4]/80 hover:text-[#E9E1D4] transition-colors flex items-center gap-1 cursor-pointer"
                   title="Translate this sentence"
                 >
                   {translating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={12} />}
@@ -851,10 +829,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 {/* Mark as Mastered button */}
                 <button
                   onClick={() => toggleMastered(displayIndex)}
-                  className={`px-2.5 py-1 rounded border text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center gap-1 cursor-pointer ${
                     masteredIndices.has(displayIndex)
-                      ? "bg-[#26543F] text-[#42946E] border-[#367859] font-semibold"
-                      : "bg-[#181622] border-[#33323E] text-[#A1A0AB] hover:text-white"
+                      ? "bg-[#26543F] text-[#42946E] border-[#367859] font-bold"
+                      : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4]"
                   }`}
                   title="Mark this sentence as mastered (M)"
                 >
@@ -864,35 +842,71 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               </div>
             </div>
 
-            {/* Step-by-Step Status Prompt Banner (ShadowingEnglish style) */}
-            {isStepPaused && shadowingMode === "step" && (
-              <div className="mb-4 p-3 rounded-lg bg-[#B5A642]/15 border border-[#B5A642]/50 flex flex-wrap items-center justify-between gap-2.5 animate-in fade-in">
+            {/* Wait Mode / Manual Paused Status Prompt Banners */}
+            {playbackState === "waiting" && (
+              <div className="mb-4 p-3 rounded-sm bg-[#2E2E2E] border border-[#B5A642] flex flex-wrap items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#B5A642] animate-pulse" />
-                  <span className="text-xs font-mono font-semibold text-[#E9E1D4]">
-                    Sentence Finished — Repeat out loud!
+                  <span className="text-xs font-mono font-bold text-[#B5A642] uppercase tracking-wider">
+                    REPEAT OUT LOUD:
+                  </span>
+                  <span className="text-xs font-mono text-[#E9E1D4]">
+                    {(waitRemainingMs / 1000).toFixed(1)}s remaining ({waitMode})
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleNextLine}
-                    className="px-3 py-1.5 rounded-lg bg-[#B5A642] hover:bg-[#c4b54e] text-[#2E2E2E] text-xs font-mono font-bold transition-all flex items-center gap-1.5 shadow cursor-pointer active:translate-y-px"
-                    title="Continue to next sentence (Spacebar or Enter)"
+                    className="px-3 py-1.5 rounded-sm bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A] text-xs font-mono font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Advance to next sentence now (Space / Enter)"
                   >
                     <span>Next Line</span>
                     <SkipForward size={12} />
-                    <kbd className="text-[10px] bg-[#2E2E2E]/20 px-1 rounded">Space</kbd>
+                    <kbd className="text-[10px] bg-[#1F132A]/20 px-1 rounded-sm">Space</kbd>
                   </button>
 
                   <button
                     onClick={handleReplayCurrent}
-                    className="px-2.5 py-1.5 rounded-lg bg-[#181622] border border-[#7A7A7A]/50 hover:border-[#B5A642] text-[#E9E1D4] text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer active:translate-y-px"
+                    className="px-2.5 py-1.5 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer"
                     title="Replay this sentence (R)"
                   >
                     <RotateCcw size={12} />
                     <span>Replay</span>
-                    <kbd className="text-[10px] bg-[#13111C] px-1 rounded text-[#B5A642]">R</kbd>
+                    <kbd className="text-[10px] bg-[#2E2E2E] px-1 rounded-sm text-[#B5A642]">R</kbd>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {playbackState === "manual-paused" && (
+              <div className="mb-4 p-3 rounded-sm bg-[#2E2E2E] border border-[#B5A642] flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#B5A642]" />
+                  <span className="text-xs font-mono font-bold text-[#B5A642] uppercase tracking-wider">
+                    PAUSED — REPEAT AT YOUR OWN PACE
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleNextLine}
+                    className="px-3 py-1.5 rounded-sm bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A] text-xs font-mono font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Continue to next sentence (Space / Enter)"
+                  >
+                    <span>Next Line</span>
+                    <SkipForward size={12} />
+                    <kbd className="text-[10px] bg-[#1F132A]/20 px-1 rounded-sm">Space</kbd>
+                  </button>
+
+                  <button
+                    onClick={handleReplayCurrent}
+                    className="px-2.5 py-1.5 rounded-sm bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Replay this sentence (R)"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Replay</span>
+                    <kbd className="text-[10px] bg-[#2E2E2E] px-1 rounded-sm text-[#B5A642]">R</kbd>
                   </button>
                 </div>
               </div>
@@ -902,12 +916,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             <div
               key={displayIndex}
               className={`transition-all duration-300 min-h-[36px] flex items-center ${
-                shadowingMode === "blind" && !peekBlind
+                isBlindMode && !peekBlind
                   ? "filter blur-md select-none opacity-40 hover:filter-none hover:opacity-100"
                   : ""
               }`}
             >
-              <p className="text-base sm:text-xl text-white leading-relaxed font-normal select-text">
+              <p className="text-base sm:text-xl text-[#E9E1D4] leading-relaxed font-normal select-text">
                 {currentSentence.text.split(" ").map((word, wIdx) => (
                   <WordWithMeaning key={wIdx} word={word} />
                 ))}
@@ -919,16 +933,16 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
-                className="mt-3 pt-3 border-t border-[#33323E] text-xs sm:text-sm text-[#A667E4] leading-relaxed"
+                className="mt-3 pt-3 border-t border-[#3A3A3A] text-xs sm:text-sm text-[#B5A642] leading-relaxed"
               >
-                <span className="font-mono text-[10px] uppercase text-[#6C6B7B] block mb-1">
+                <span className="font-mono text-[10px] uppercase text-[#7A7A7A] block mb-1">
                   Myanmar Translation:
                 </span>
                 {sentenceTranslation}
               </motion.div>
             )}
 
-            {/* Local A/B Voice Comparison Widget with Waveform */}
+            {/* Local A/B Voice Comparison Widget */}
             <AudioComparison
               sentenceText={currentSentence.text}
               onPlayNative={() => handleSeek(currentSentence.offset, displayIndex)}
@@ -940,23 +954,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       </div>
 
       {/* Right Column: Interactive Synced Transcript & Progress */}
-      <div className="bg-[#1F132A] rounded-xl border border-[#33323E] flex flex-col h-130 lg:h-[720px] shadow-2xl overflow-hidden">
+      <div className="bg-[#1F132A] rounded-sm border border-[#3A3A3A] flex flex-col h-130 lg:h-[720px] overflow-hidden">
         {/* Transcript Header with Auto-scroll Toggle */}
-        <div className="p-3.5 border-b border-[#33323E] bg-[#181622]/95 sticky top-0 rounded-t-xl backdrop-blur-md z-10 space-y-2.5">
+        <div className="p-3.5 border-b border-[#3A3A3A] bg-[#1F132A] sticky top-0 rounded-t-sm z-10 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-white tracking-tight uppercase">Transcript</h2>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#13111C] border border-[#33323E] text-[#A1A0AB]">
+              <h2 className="text-sm font-bold font-mono text-[#E9E1D4] tracking-wider uppercase">Transcript</h2>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#B5A642]">
                 {transcript.length} lines
               </span>
             </div>
 
             <button
               onClick={() => setAutoScroll((v) => !v)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-mono border transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2.5 py-1 rounded-sm text-[11px] font-mono border transition-colors flex items-center gap-1.5 cursor-pointer ${
                 autoScroll
-                  ? "bg-[#853BCE]/20 border-[#853BCE]/50 text-[#A667E4]"
-                  : "bg-[#13111C] border-[#33323E] text-[#6C6B7B] hover:text-[#A1A0AB]"
+                  ? "bg-[#B5A642]/20 border-[#B5A642]/60 text-[#B5A642] font-bold"
+                  : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
               }`}
               title="Toggle automatic scrolling to active line"
             >
@@ -967,19 +981,19 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
           {/* Lesson Mastery Progress Bar */}
           <div>
-            <div className="flex items-center justify-between text-[11px] font-mono text-[#A1A0AB] mb-1">
+            <div className="flex items-center justify-between text-[11px] font-mono text-[#E9E1D4]/80 mb-1">
               <span>Mastery Progress</span>
-              <span className={masteryPercent === 100 ? "text-[#42946E] font-bold" : "text-[#A667E4]"}>
+              <span className={masteryPercent === 100 ? "text-[#42946E] font-bold" : "text-[#B5A642]"}>
                 {masteredIndices.size} / {transcript.length} ({masteryPercent}%)
               </span>
             </div>
-            <div className="w-full h-1.5 bg-[#13111C] rounded-full overflow-hidden border border-[#33323E]">
+            <div className="w-full h-1.5 bg-[#2E2E2E] rounded-none overflow-hidden border border-[#3A3A3A]">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${masteryPercent}%` }}
-                transition={{ duration: 0.4 }}
-                className={`h-full rounded-full ${
-                  masteryPercent === 100 ? "bg-[#42946E]" : "bg-gradient-to-r from-[#853BCE] to-[#A667E4]"
+                transition={{ duration: 0.3 }}
+                className={`h-full ${
+                  masteryPercent === 100 ? "bg-[#42946E]" : "bg-[#B5A642]"
                 }`}
               />
             </div>
@@ -988,9 +1002,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           {/* Celebration Banner when 100% Mastered */}
           {isLessonFinished && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="p-2 rounded-lg bg-[#26543F]/60 border border-[#42946E] flex items-center gap-2 text-xs text-[#42946E] font-medium"
+              className="p-2 rounded-sm bg-[#26543F]/60 border border-[#42946E] flex items-center gap-2 text-xs text-[#42946E] font-medium font-mono"
             >
               <PartyPopper size={15} />
               <span>Awesome! You have mastered all sentences in this lesson!</span>
@@ -1003,13 +1017,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           {loading ? (
             <div className="space-y-2 animate-pulse">
               {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div key={i} className="h-16 bg-[#181622] rounded-lg border border-[#33323E]" />
+                <div key={i} className="h-16 bg-[#2E2E2E] rounded-sm border border-[#3A3A3A]" />
               ))}
             </div>
           ) : transcript.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center p-6 text-center text-[#A1A0AB]">
-              <Sparkles className="w-8 h-8 text-[#853BCE] mb-2 opacity-60" />
-              <p className="text-sm">No transcript available for this lesson.</p>
+            <div className="h-full flex flex-col items-center justify-center p-6 text-center text-[#7A7A7A]">
+              <Sparkles className="w-8 h-8 text-[#B5A642] mb-2 opacity-60" />
+              <p className="text-sm font-mono">No transcript available for this lesson.</p>
             </div>
           ) : (
             transcript.map((item, index) => {
@@ -1023,20 +1037,20 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   key={index}
                   ref={isActive ? activeLineRef : null}
                   onClick={() => handleSeek(item.offset, index)}
-                  className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 border ${
+                  className={`group relative p-3 rounded-sm cursor-pointer transition-colors border ${
                     isActive
-                      ? "bg-[#853BCE]/15 border-[#853BCE] shadow-lg shadow-[#853BCE]/15 translate-x-1"
-                      : "border-transparent hover:bg-[#181622] hover:border-[#33323E] text-[#A1A0AB] hover:text-white"
+                      ? "bg-[#2E2E2E] border-[#B5A642] shadow-none translate-x-1"
+                      : "border-transparent hover:bg-[#2E2E2E] hover:border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4]"
                   }`}
                 >
                   {/* Line Header: Timestamp and Active Pill & Mastered Checkbox */}
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${
+                        className={`text-[11px] font-mono px-1.5 py-0.5 rounded-sm ${
                           isActive
-                            ? "bg-[#853BCE] text-white font-medium"
-                            : "bg-[#13111C] text-[#6C6B7B] group-hover:text-[#A1A0AB]"
+                            ? "bg-[#B5A642] text-[#1F132A] font-bold"
+                            : "bg-[#1F132A] text-[#7A7A7A] group-hover:text-[#E9E1D4]"
                         }`}
                       >
                         {formatTime(item.offset)}
@@ -1044,84 +1058,43 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                       </span>
 
                       {isActive && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#A667E4] font-semibold tracking-wider uppercase">
-                          <Volume2 size={12} className="animate-pulse" /> Playing
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#B5A642] font-bold tracking-wider uppercase">
+                          <Volume2 size={12} className="animate-pulse" /> Active
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      {/* Mastered Status Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleMastered(index);
-                        }}
-                        className={`p-1 rounded transition-colors cursor-pointer ${
-                          isMastered
-                            ? "text-[#42946E]"
-                            : "text-[#6C6B7B] hover:text-white opacity-40 group-hover:opacity-100"
-                        }`}
-                        title={isMastered ? "Mastered" : "Mark as Mastered"}
-                      >
-                        <CheckCircle2 size={14} className={isMastered ? "fill-[#26543F]" : ""} />
-                      </button>
-
-                      {/* Replay Line Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSeek(item.offset, index);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#853BCE]/20 text-[#A667E4] transition-opacity text-xs cursor-pointer"
-                        title="Play this line"
-                      >
-                        <RotateCcw size={12} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Line Text with Dictionary Word Lookup (Blind Mode blur support) */}
-                  <div
-                    className={
-                      shadowingMode === "blind" && !peekBlind
-                        ? "filter blur-sm select-none opacity-40 group-hover:filter-none group-hover:opacity-100 transition-all"
-                        : "transition-all"
-                    }
-                  >
-                    <p
-                      className={`text-sm sm:text-[15px] leading-relaxed select-text ${
-                        isActive ? "text-white font-medium" : "text-[#DCDCE0]"
-                      } ${isMastered ? "opacity-90" : ""}`}
+                    {/* Mastered Badge / Checkbox */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMastered(index);
+                      }}
+                      className={`p-1 rounded-sm border transition-colors cursor-pointer ${
+                        isMastered
+                          ? "bg-[#26543F] text-[#42946E] border-[#367859]"
+                          : "bg-[#1F132A] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
+                      }`}
+                      title={isMastered ? "Mastered (Click to unmark)" : "Mark as Mastered"}
                     >
-                      {item.text.split(" ").map((word, wIdx) => (
-                        <WordWithMeaning key={wIdx} word={word} />
-                      ))}
-                    </p>
+                      <Check size={11} className={isMastered ? "stroke-[3]" : "opacity-40"} />
+                    </button>
                   </div>
+
+                  {/* Transcript Line Text */}
+                  <p
+                    className={`text-sm leading-relaxed ${
+                      isActive ? "text-[#E9E1D4] font-medium" : "text-[#E9E1D4]/75 group-hover:text-[#E9E1D4]"
+                    }`}
+                  >
+                    {item.text}
+                  </p>
                 </div>
               );
             })
           )}
         </div>
       </div>
-
-      {/* Lesson Complete Celebration Modal */}
-      <LessonCompleteModal
-        isOpen={showCompletionModal}
-        onClose={() => setShowCompletionModal(false)}
-        masteredCount={masteredIndices.size}
-        totalLines={transcript.length}
-        reason={completionReason}
-      />
-
-      {/* 7-Day Flame & Freeze Tracker Modal */}
-      <StreakTracker
-        isModal
-        isOpen={showStreakModal}
-        onClose={() => setShowStreakModal(false)}
-        data={streakData}
-      />
     </div>
   );
 }

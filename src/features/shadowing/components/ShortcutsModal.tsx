@@ -13,53 +13,56 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: "Space / Enter", desc: "Play/Pause (or Advance to next line when paused in Step mode)" },
+    { key: "Space", desc: "Play/Pause (or Advance immediately when in Wait / Manual Mode)" },
+    { key: "Enter", desc: "Jump to Next sentence" },
     { key: "R", desc: "Replay current active sentence" },
-    { key: "L", desc: "Toggle sentence loop mode (continuous shadowing)" },
+    { key: "L", desc: "Toggle single sentence loop" },
     { key: "← (Left)", desc: "Jump to previous sentence" },
     { key: "→ (Right)", desc: "Jump to next sentence" },
     { key: "M", desc: "Toggle Mastered status for current sentence" },
-    { key: "S", desc: "Cycle playback speed (0.75x → 1.0x → 1.25x)" },
+    { key: "S", desc: "Cycle playback speed (0.75x → 1.0x → 1.25x → 1.5x)" },
     { key: "?", desc: "Toggle this keyboard shortcuts menu" },
   ];
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-none">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="relative w-full max-w-md bg-[#1F132A] border border-[#33323E] rounded-2xl p-6 sm:p-7 shadow-2xl text-white"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          className="relative w-full max-w-md bg-[#1F132A] border border-[#3A3A3A] rounded-none p-6 shadow-2xl text-[#E9E1D4]"
         >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 p-1.5 rounded-lg text-[#A1A0AB] hover:text-white hover:bg-[#181622] transition-colors"
+            className="absolute top-4 right-4 p-1.5 text-[#E9E1D4]/70 hover:text-[#B5A642] hover:bg-[#2E2E2E] transition-colors"
           >
             <X size={18} />
           </button>
 
           {/* Header */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-[#853BCE]/15 border border-[#853BCE]/30 flex items-center justify-center text-[#A667E4]">
+          <div className="flex items-center gap-3 mb-5 border-b border-[#3A3A3A] pb-3">
+            <div className="w-8 h-8 rounded-none bg-[#B5A642]/20 border border-[#B5A642] flex items-center justify-center text-[#B5A642]">
               <Keyboard size={18} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white tracking-tight">Keyboard Shortcuts</h3>
-              <p className="text-xs text-[#A1A0AB]">Practice effortlessly without touching the mouse</p>
+              <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-[#E9E1D4]">
+                Keyboard Shortcuts
+              </h3>
+              <p className="text-xs text-[#E9E1D4]/60">Hands-free shadowing practice</p>
             </div>
           </div>
 
           {/* Shortcuts list */}
-          <div className="space-y-2.5 mb-6">
+          <div className="space-y-2 mb-6 max-h-[60vh] overflow-y-auto pr-1">
             {shortcuts.map((sc, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between p-2 rounded-lg bg-[#181622] border border-[#33323E]"
+                className="flex items-center justify-between p-2 bg-[#2E2E2E] border border-[#3A3A3A]"
               >
-                <span className="text-xs text-[#DCDCE0]">{sc.desc}</span>
-                <kbd className="px-2 py-0.5 rounded bg-[#13111C] border border-[#33323E] text-[11px] font-mono text-[#A667E4] font-semibold">
+                <span className="text-xs text-[#E9E1D4]/90 pr-2">{sc.desc}</span>
+                <kbd className="px-2 py-0.5 bg-[#1F132A] border border-[#B5A642]/50 text-[11px] font-mono text-[#B5A642] font-bold shrink-0">
                   {sc.key}
                 </kbd>
               </div>
@@ -69,7 +72,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="btn-railway-primary px-5 py-2 text-xs font-medium"
+              className="px-5 py-2 text-xs font-mono font-bold uppercase bg-[#B5A642] text-[#1F132A] hover:bg-[#B5A642]/90 transition-colors"
             >
               Got it
             </button>
