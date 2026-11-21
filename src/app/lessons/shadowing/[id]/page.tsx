@@ -589,10 +589,16 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   ]);
 
   const togglePlayPause = useCallback(() => {
+    // 1. If currently in the auto-next countdown window: Space / Play button toggles Pause & Resume of the timer
+    if (isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown) {
+      setIsCountdownPaused((v) => !v);
+      return;
+    }
+
     if (!playerRef.current) return;
     if (playerRef.current.paused()) {
       const curIdx = activeIndexRef.current;
-      // If paused at sentence end in step mode, pressing Play/Space advances to next sentence
+      // If paused at sentence end in step mode without active countdown, pressing Play/Space advances to next sentence
       if (
         autoPauseAtEndRef.current &&
         (lastPausedIdxRef.current !== null || isPausedAtSentenceEnd) &&
@@ -609,7 +615,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     } else {
       playerRef.current.pause();
     }
-  }, [handleNextLine, isPausedAtSentenceEnd]);
+  }, [handleNextLine, isPausedAtSentenceEnd, autoAdvanceEnabled, isCountingDown]);
 
   const handleSpeedPreset = useCallback((speed: number) => {
     if (playerRef.current) {
@@ -1006,10 +1012,39 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               <button
                 onClick={togglePlayPause}
                 className="px-3 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4] hover:border-[#B5A642] hover:text-[#B5A642] transition-colors flex items-center gap-1.5 text-xs font-mono font-bold cursor-pointer"
-                title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+                title={
+                  isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown
+                    ? isCountdownPaused
+                      ? "Resume Timer (Space)"
+                      : "Pause Timer (Space)"
+                    : isPlaying
+                    ? "Pause (Space)"
+                    : "Play (Space)"
+                }
               >
-                {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-                <span>{isPlaying ? "Pause" : "Play"}</span>
+                {isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown ? (
+                  isCountdownPaused ? (
+                    <>
+                      <Play size={13} className="text-[#B5A642]" />
+                      <span className="text-[#B5A642]">Resume</span>
+                    </>
+                  ) : (
+                    <>
+                      <Pause size={13} className="text-[#B5A642]" />
+                      <span className="text-[#B5A642]">Pause</span>
+                    </>
+                  )
+                ) : isPlaying ? (
+                  <>
+                    <Pause size={13} />
+                    <span>Pause</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={13} />
+                    <span>Play</span>
+                  </>
+                )}
               </button>
 
               {/* Replay Current Line (R) */}
@@ -1228,30 +1263,41 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
               {/* Step Mode: Sentence Paused for Shadowing Notification Hint & 5s Countdown Progress Bar */}
               {isPausedAtSentenceEnd && (
-                <div className="mt-3 px-3.5 py-2.5 bg-[#2E2E2E]/90 border-l-2 border-[#B5A642] rounded-xs space-y-2 transition-all">
+                <div className="mt-3 px-3.5 py-2.5 bg-[#2E2E2E]/90 border-l-2 border-[#B5A642] rounded-xs space-y-2.5 transition-all">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#E9E1D4]">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#B5A642] animate-pulse shrink-0" />
-                      <span className="text-[#B5A642] font-bold">Shadowing Window:</span>
-                      <span className="text-[#E9E1D4]/80 text-[11px]">Speak aloud now!</span>
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${isCountdownPaused ? "bg-[#B5A642]/60" : "bg-[#B5A642] animate-pulse"}`} />
+                      <span className="text-[#B5A642] font-bold">
+                        {isCountdownPaused ? "Timer Paused:" : "Shadowing Window:"}
+                      </span>
+                      <span className="text-[#E9E1D4]/80 text-[11px]">
+                        {isCountdownPaused ? "Take your time! Space to resume, Enter for next" : "Speak the sentence aloud now!"}
+                      </span>
                     </div>
 
                     {autoAdvanceEnabled && isCountingDown ? (
                       <div className="flex items-center gap-2 text-[11px] font-mono">
-                        <span className="text-[#B5A642] font-bold">
-                          Next in {(countdownRemainingMs / 1000).toFixed(1)}s
+                        <span className={isCountdownPaused ? "text-[#E9E1D4]/80 font-bold" : "text-[#B5A642] font-bold"}>
+                          {isCountdownPaused
+                            ? `Paused at ${(countdownRemainingMs / 1000).toFixed(1)}s`
+                            : `Next in ${(countdownRemainingMs / 1000).toFixed(1)}s`}
                         </span>
                         <button
                           type="button"
                           onClick={() => setIsCountdownPaused((v) => !v)}
-                          className="px-1.5 py-0.5 rounded-xs bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] text-[10px] cursor-pointer"
+                          className={`px-2 py-0.5 rounded-xs border text-[11px] font-mono font-bold transition-colors cursor-pointer flex items-center gap-1 ${
+                            isCountdownPaused
+                              ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] shadow-sm animate-pulse"
+                              : "bg-[#1F132A] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
+                          }`}
                           title={
                             isCountdownPaused
-                              ? "Resume auto-next timer"
-                              : "Pause auto-next timer to practice at your own pace"
+                              ? "Resume auto-next timer (Space)"
+                              : "Pause auto-next timer to practice (Space)"
                           }
                         >
-                          {isCountdownPaused ? "Resume" : "Hold"}
+                          {isCountdownPaused ? <Play size={10} className="fill-[#1F132A]" /> : <Pause size={10} />}
+                          <span>{isCountdownPaused ? "Resume (Space)" : "Pause (Space)"}</span>
                         </button>
                       </div>
                     ) : (
@@ -1273,11 +1319,17 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     )}
                   </div>
 
-                  {/* 5-Second Progress Bar */}
+                  {/* 5-Second Progress Bar (Clickable to Pause/Resume) */}
                   {autoAdvanceEnabled && isCountingDown && (
-                    <div className="w-full h-1.5 bg-[#1F132A] border border-[#3A3A3A] rounded-full overflow-hidden">
+                    <div
+                      onClick={() => setIsCountdownPaused((v) => !v)}
+                      title={isCountdownPaused ? "Click to resume countdown (Space)" : "Click to pause countdown (Space)"}
+                      className="w-full h-2 bg-[#1F132A] border border-[#3A3A3A] rounded-full overflow-hidden cursor-pointer relative group"
+                    >
                       <div
-                        className="h-full bg-[#B5A642] transition-all duration-75 ease-linear"
+                        className={`h-full transition-all duration-75 ease-linear ${
+                          isCountdownPaused ? "bg-[#B5A642]/50" : "bg-[#B5A642]"
+                        }`}
                         style={{
                           width: `${Math.min(
                             100,
