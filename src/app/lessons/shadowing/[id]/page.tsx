@@ -12,7 +12,6 @@ import {
   loadStreakData,
   recordMasteredLineProgress,
   StreakData,
-  SubtitleSyncControl,
 } from "@/features/shadowing";
 import { WordWithMeaning } from "@/features/vocabulary";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
@@ -95,9 +94,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
-  const [subtitleOffsetMs, setSubtitleOffsetMs] = useState<number>(0);
-  const subtitleOffsetMsRef = useRef<number>(0);
-  subtitleOffsetMsRef.current = subtitleOffsetMs;
 
   // Dynamic Video Frame Sizing: "compact" (460px) | "normal" (620px) | "wide" (100%)
   const [videoSize, setVideoSize] = useState<VideoSize>("normal");
@@ -488,8 +484,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         }
       }
 
-      // Calculate effective time with subtitle offset for UI transcript highlighting ONLY
-      const effectiveMs = Math.max(0, rawCurrentMs + subtitleOffsetMsRef.current);
+      // Calculate effective time for UI transcript highlighting
+      const effectiveMs = Math.max(0, rawCurrentMs);
       const newIndex = findActiveTranscriptIndex(items, effectiveMs);
 
       if (newIndex !== -1 && newIndex !== activeIndexRef.current) {
@@ -1131,13 +1127,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   <Gauge size={12} className="text-[#7A7A7A]" />
                   <span className="font-bold text-[11px]">{playbackRate}x</span>
                 </button>
-
-                {/* Subtitle Sync */}
-                <SubtitleSyncControl
-                  offsetMs={subtitleOffsetMs}
-                  onAdjustOffset={(delta) => setSubtitleOffsetMs((v) => v + delta)}
-                  onResetOffset={() => setSubtitleOffsetMs(0)}
-                />
 
                 {/* Blind Mode Toggle */}
                 <button
