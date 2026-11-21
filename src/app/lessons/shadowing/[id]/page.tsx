@@ -364,10 +364,16 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         !isEchoPausingRef.current &&
         activeIndexRef.current !== -1
       ) {
-        const currentItem = items[activeIndexRef.current];
+        const curIdx = activeIndexRef.current;
+        const currentItem = items[curIdx];
         if (currentItem) {
+          const nextItem = items[curIdx + 1];
           const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
-          const endMs = currentItem.offset + duration + 150;
+          // Calculate exact end of this sentence: either line ends (+100ms) or right before next line begins
+          let endMs = currentItem.offset + duration + 100;
+          if (nextItem && nextItem.offset > currentItem.offset) {
+            endMs = Math.min(endMs, nextItem.offset - 50);
+          }
 
           if (currentMs >= endMs) {
             startEchoCountdown();
@@ -387,6 +393,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
       // Sync active line
       const newIndex = findActiveTranscriptIndex(items, currentMs);
+      if (newIndex !== -1 && newIndex !== activeIndexRef.current) {
+        activeIndexRef.current = newIndex;
+      }
       setActiveIndex((prev) => (prev !== newIndex ? newIndex : prev));
     };
 
@@ -567,6 +576,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       const tag = (document.activeElement?.tagName || "").toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
+      // When Echo Countdown is pausing: Space, Enter, or ArrowRight skips to next line immediately
+      if (echoCountdown !== null) {
+        if (e.code === "Space" || e.code === "Enter" || e.key === "ArrowRight") {
+          e.preventDefault();
+          skipEchoCountdown();
+          return;
+        }
+      }
+
       if (e.code === "Space") {
         e.preventDefault();
         if (playerRef.current) {
@@ -603,7 +621,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleReplayCurrent, handlePrevLine, handleNextLine, activeIndex, focusedIndex, toggleMastered, cycleSpeed]);
+  }, [handleReplayCurrent, handlePrevLine, handleNextLine, activeIndex, focusedIndex, toggleMastered, cycleSpeed, echoCountdown, skipEchoCountdown]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -733,24 +751,33 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
           {/* Echo Countdown Overlay */}
           {echoCountdown !== null && (
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-6 animate-in fade-in">
-              <div className="w-16 h-16 rounded-2xl bg-[#853BCE]/30 border-2 border-[#853BCE] flex items-center justify-center text-3xl font-extrabold text-white mb-3 shadow-xl shadow-[#853BCE]/40 animate-pulse font-mono">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-6 animate-in fade-in">
+              <div className="w-16 h-16 rounded-2xl bg-[#853BCE]/30 border-2 border-[#853BCE] flex items-center justify-center text-3xl font-extrabold text-white mb-2 shadow-xl shadow-[#853BCE]/40 animate-pulse font-mono">
                 {echoCountdown}s
               </div>
               <h3 className="text-lg font-semibold text-white tracking-tight flex items-center gap-2">
                 <Mic size={18} className="text-[#A667E4]" />
                 Echo Repeat Out Loud!
               </h3>
-              <p className="text-xs text-[#A1A0AB] mt-1 max-w-sm mb-4">
-                Repeat this sentence out loud with natural rhythm and intonation.
+              <p className="text-xs text-[#A1A0AB] mt-1 max-w-sm mb-3">
+                Repeat this sentence out loud. Auto-advances when timer ends.
               </p>
+
+              {/* Active Sentence Quote Display */}
+              {currentSentence?.text && (
+                <div className="bg-[#13111C]/90 border border-[#853BCE]/40 rounded-xl px-4 py-2.5 max-w-lg mb-4 shadow-lg">
+                  <p className="text-sm sm:text-base text-white font-medium italic">
+                    &ldquo;{currentSentence.text}&rdquo;
+                  </p>
+                </div>
+              )}
 
               {/* Action buttons during countdown */}
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <button
                   onClick={skipEchoCountdown}
                   className="px-3.5 py-1.5 rounded-lg bg-[#853BCE] hover:bg-[#9745e6] text-white text-xs font-mono font-medium transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                  title="Finish speaking and proceed to next sentence immediately"
+                  title="Finish speaking and proceed to next sentence immediately (Space/Enter/→)"
                 >
                   <SkipForward size={13} />
                   <span>Continue Now</span>
@@ -771,7 +798,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     handleReplayCurrent();
                   }}
                   className="px-3 py-1.5 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#A1A0AB] hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Replay this sentence audio"
+                  title="Replay this sentence audio (R)"
                 >
                   <Volume2 size={13} />
                   <span>Replay Audio</span>
