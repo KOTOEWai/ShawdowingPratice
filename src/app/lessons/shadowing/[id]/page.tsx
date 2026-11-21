@@ -86,6 +86,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const seekLockUntilRef = useRef<number>(0);
   const [isPausedAtSentenceEnd, setIsPausedAtSentenceEnd] = useState<boolean>(false);
 
+  // Auto-Next Timer Mode (e.g. 5-second countdown progress bar after sentence pause)
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState<boolean>(true);
+  const [autoAdvanceSeconds, setAutoAdvanceSeconds] = useState<number>(5);
+  const [countdownRemainingMs, setCountdownRemainingMs] = useState<number>(0);
+  const [isCountingDown, setIsCountingDown] = useState<boolean>(false);
+  const [isCountdownPaused, setIsCountdownPaused] = useState<boolean>(false);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [subtitleOffsetMs, setSubtitleOffsetMs] = useState<number>(0);
@@ -167,6 +174,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         autoPauseAtEndRef.current = parsed;
       }
 
+      const savedAutoAdvance = localStorage.getItem("shadowing_auto_advance_enabled");
+      if (savedAutoAdvance !== null) {
+        setAutoAdvanceEnabled(JSON.parse(savedAutoAdvance));
+      }
+      const savedAutoAdvanceSec = localStorage.getItem("shadowing_auto_advance_seconds");
+      if (savedAutoAdvanceSec !== null) {
+        setAutoAdvanceSeconds(JSON.parse(savedAutoAdvanceSec));
+      }
+
       const completedLessons = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
       const isAlreadyCompleted = completedLessons.some((l: { id: string }) => l.id === id);
       if (isAlreadyCompleted) {
@@ -197,6 +213,33 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       return next;
     });
   }, []);
+
+  // Cycle Auto-Next Timer: 5s -> 7s -> 3s -> OFF -> 5s
+  const cycleAutoAdvance = useCallback(() => {
+    if (!autoAdvanceEnabled) {
+      setAutoAdvanceEnabled(true);
+      setAutoAdvanceSeconds(5);
+      try {
+        localStorage.setItem("shadowing_auto_advance_enabled", JSON.stringify(true));
+        localStorage.setItem("shadowing_auto_advance_seconds", JSON.stringify(5));
+      } catch {}
+    } else if (autoAdvanceSeconds === 5) {
+      setAutoAdvanceSeconds(7);
+      try {
+        localStorage.setItem("shadowing_auto_advance_seconds", JSON.stringify(7));
+      } catch {}
+    } else if (autoAdvanceSeconds === 7) {
+      setAutoAdvanceSeconds(3);
+      try {
+        localStorage.setItem("shadowing_auto_advance_seconds", JSON.stringify(3));
+      } catch {}
+    } else {
+      setAutoAdvanceEnabled(false);
+      try {
+        localStorage.setItem("shadowing_auto_advance_enabled", JSON.stringify(false));
+      } catch {}
+    }
+  }, [autoAdvanceEnabled, autoAdvanceSeconds]);
 
   // Trigger Lesson Completion
   const triggerLessonCompletion = useCallback(
@@ -500,9 +543,50 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     if (items.length === 0) return;
     const currentActive = activeIndexRef.current !== -1 ? activeIndexRef.current : focusedIndex;
     const baseIdx = currentActive >= 0 ? currentActive : 0;
+    if (baseIdx >= items.length - 1) {
+      triggerLessonCompletion("playthrough");
+      return;
+    }
     const targetIdx = Math.min(items.length - 1, baseIdx + 1);
     handleSeek(items[targetIdx].offset, targetIdx);
-  }, [focusedIndex, handleSeek]);
+  }, [focusedIndex, handleSeek, triggerLessonCompletion]);
+
+  // 5-Second (Customizable) Auto-Next Countdown Timer when paused at sentence end
+  useEffect(() => {
+    if (isPausedAtSentenceEnd && autoAdvanceEnabled && autoPauseAtEnd && !isCountdownPaused) {
+      const totalMs = autoAdvanceSeconds * 1000;
+      let remaining = countdownRemainingMs > 0 ? countdownRemainingMs : totalMs;
+      setCountdownRemainingMs(remaining);
+      setIsCountingDown(true);
+
+      const interval = setInterval(() => {
+        remaining -= 50;
+        const clamped = Math.max(0, remaining);
+        setCountdownRemainingMs(clamped);
+
+        if (clamped <= 0) {
+          clearInterval(interval);
+          setIsCountingDown(false);
+          handleNextLine();
+        }
+      }, 50);
+
+      return () => {
+        clearInterval(interval);
+      };
+    } else if (!isPausedAtSentenceEnd) {
+      setIsCountingDown(false);
+      setCountdownRemainingMs(0);
+      setIsCountdownPaused(false);
+    }
+  }, [
+    isPausedAtSentenceEnd,
+    autoAdvanceEnabled,
+    autoPauseAtEnd,
+    autoAdvanceSeconds,
+    isCountdownPaused,
+    handleNextLine,
+  ]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
@@ -950,7 +1034,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 }`}
                 title="Next Line (→ / Enter)"
               >
-                <span>Next</span>
+                <span>
+                  Next
+                  {isPausedAtSentenceEnd && autoAdvanceEnabled && isCountingDown
+                    ? ` (${Math.ceil(countdownRemainingMs / 1000)}s)`
+                    : ""}
+                </span>
                 <SkipForward size={13} />
               </button>
             </div>
@@ -971,6 +1060,25 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <span className="hidden sm:inline">Step Mode</span>
                 <span className="sm:hidden">Step</span>
                 {autoPauseAtEnd && <span className="w-1.5 h-1.5 rounded-full bg-[#B5A642]" />}
+              </button>
+
+              {/* Auto-Next (5s Countdown) Mode */}
+              <button
+                onClick={cycleAutoAdvance}
+                className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  autoAdvanceEnabled
+                    ? "bg-[#B5A642]/15 border-[#B5A642]/40 text-[#B5A642]"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
+                }`}
+                title={`Auto-Next Timer: ${
+                  autoAdvanceEnabled
+                    ? `${autoAdvanceSeconds}s (Click to change: 5s, 7s, 3s, OFF)`
+                    : "OFF (Click to enable)"
+                }`}
+              >
+                <Clock size={13} />
+                <span>{autoAdvanceEnabled ? `Auto (${autoAdvanceSeconds}s)` : "Auto OFF"}</span>
+                {autoAdvanceEnabled && <span className="w-1.5 h-1.5 rounded-full bg-[#B5A642]" />}
               </button>
 
               {/* Single Sentence Loop (L) */}
@@ -1118,29 +1226,72 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </p>
               </div>
 
-              {/* Step Mode: Sentence Paused for Shadowing Notification Hint */}
+              {/* Step Mode: Sentence Paused for Shadowing Notification Hint & 5s Countdown Progress Bar */}
               {isPausedAtSentenceEnd && (
-                <div className="mt-3 px-3 py-2 bg-[#2E2E2E]/80 border-l-2 border-[#B5A642] rounded-xs flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#E9E1D4]">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#B5A642] animate-pulse shrink-0" />
-                    <span className="text-[#B5A642] font-bold">Shadowing Pause:</span>
-                    <span className="text-[#E9E1D4]/80 text-[11px]">Speak aloud now!</span>
+                <div className="mt-3 px-3.5 py-2.5 bg-[#2E2E2E]/90 border-l-2 border-[#B5A642] rounded-xs space-y-2 transition-all">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#E9E1D4]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#B5A642] animate-pulse shrink-0" />
+                      <span className="text-[#B5A642] font-bold">Shadowing Window:</span>
+                      <span className="text-[#E9E1D4]/80 text-[11px]">Speak aloud now!</span>
+                    </div>
+
+                    {autoAdvanceEnabled && isCountingDown ? (
+                      <div className="flex items-center gap-2 text-[11px] font-mono">
+                        <span className="text-[#B5A642] font-bold">
+                          Next in {(countdownRemainingMs / 1000).toFixed(1)}s
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsCountdownPaused((v) => !v)}
+                          className="px-1.5 py-0.5 rounded-xs bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4] text-[10px] cursor-pointer"
+                          title={
+                            isCountdownPaused
+                              ? "Resume auto-next timer"
+                              : "Pause auto-next timer to practice at your own pace"
+                          }
+                        >
+                          {isCountdownPaused ? "Resume" : "Hold"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-[#7A7A7A] flex items-center gap-2">
+                        <button
+                          onClick={handleReplayCurrent}
+                          className="text-[#E9E1D4]/70 hover:text-[#B5A642] transition-colors flex items-center gap-1 cursor-pointer mr-2"
+                          title="Replay this sentence (R)"
+                        >
+                          <RotateCcw size={11} />
+                          <span>Replay (R)</span>
+                        </button>
+                        <span>Press</span>
+                        <kbd className="bg-[#1F132A] border border-[#3A3A3A] px-1 py-0.5 rounded-xs text-[#B5A642] font-bold text-[10px]">
+                          Enter
+                        </kbd>
+                        <span>or click Next</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-[11px] text-[#7A7A7A] flex items-center gap-2">
-                    <button
-                      onClick={handleReplayCurrent}
-                      className="text-[#E9E1D4]/70 hover:text-[#B5A642] transition-colors flex items-center gap-1 cursor-pointer mr-2"
-                      title="Replay this sentence (R)"
-                    >
-                      <RotateCcw size={11} />
-                      <span>Replay (R)</span>
-                    </button>
-                    <span>Press</span>
-                    <kbd className="bg-[#1F132A] border border-[#3A3A3A] px-1 py-0.5 rounded-xs text-[#B5A642] font-bold text-[10px]">
-                      Enter
-                    </kbd>
-                    <span>or click Next</span>
-                  </div>
+
+                  {/* 5-Second Progress Bar */}
+                  {autoAdvanceEnabled && isCountingDown && (
+                    <div className="w-full h-1.5 bg-[#1F132A] border border-[#3A3A3A] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#B5A642] transition-all duration-75 ease-linear"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              ((autoAdvanceSeconds * 1000 - countdownRemainingMs) /
+                                (autoAdvanceSeconds * 1000)) *
+                                100
+                            )
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
