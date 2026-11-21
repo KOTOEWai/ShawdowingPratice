@@ -82,6 +82,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   autoPauseAtEndRef.current = autoPauseAtEnd;
   const lastPausedIdxRef = useRef<number | null>(null);
   const seekingTargetIdxRef = useRef<number | null>(null);
+  const seekLockUntilRef = useRef<number>(0);
   const [isPausedAtSentenceEnd, setIsPausedAtSentenceEnd] = useState<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -241,10 +242,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       lastPausedIdxRef.current = null;
       setIsPausedAtSentenceEnd(false);
 
+      const items = transcriptRef.current;
       const resolvedIdx =
         typeof explicitIndex === "number"
           ? explicitIndex
-          : transcriptRef.current.findIndex((i) => Math.abs(i.offset - offset) < 200);
+          : items.findIndex((i) => Math.abs(i.offset - offset) < 200);
 
       if (resolvedIdx >= 0) {
         seekingTargetIdxRef.current = resolvedIdx;
@@ -252,6 +254,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         setActiveIndex(resolvedIdx);
         setFocusedIndex(resolvedIdx);
       }
+
+      // Lock time-sync for 600ms so video.js-youtube iframe seek completes smoothly
+      // without reporting stale timestamps or prematurely reverting / pausing on the old line
+      seekLockUntilRef.current = Date.now() + 600;
 
       // Seek directly to the exact sentence start offset
       const targetSec = Math.max(0, offset / 1000);
@@ -312,21 +318,17 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
     const syncTranscript = () => {
       if (!player) return;
+
+      // When seeking to a line, ignore stale timestamps until seek settling window elapses
+      if (Date.now() < seekLockUntilRef.current) {
+        return;
+      }
+
       const rawCurrentMs = (player.currentTime() || 0) * 1000;
       const items = transcriptRef.current;
       if (!items || items.length === 0) return;
 
       const curIdx = activeIndexRef.current;
-
-      // While seeking to a new line, wait until currentTime reaches target line
-      if (seekingTargetIdxRef.current !== null) {
-        const targetLine = items[seekingTargetIdxRef.current];
-        if (targetLine && rawCurrentMs >= targetLine.offset - 50) {
-          seekingTargetIdxRef.current = null;
-        } else {
-          return;
-        }
-      }
 
       // Handle Single Sentence Loop Mode
       if (isLoopingRef.current && curIdx !== -1) {
@@ -337,6 +339,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           const startSec = Math.max(0, currentItem.offset / 1000);
 
           if (rawCurrentMs >= endMs) {
+            seekLockUntilRef.current = Date.now() + 400;
             player.currentTime(startSec);
             return;
           }
@@ -382,6 +385,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           triggerLessonCompletion("playthrough");
         }
       } catch {}
+
+      // In Step Mode, once a line is active, do not allow dynamic time-sync to overwrite activeIndex
+      // unless user manually jumped with the native scrubber
+      if (autoPauseAtEndRef.current && curIdx !== -1) {
+        const currentItem = items[curIdx];
+        if (currentItem) {
+          const dur = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
+          const nextItem = items[curIdx + 1];
+          const upperBound =
+            nextItem && nextItem.offset > currentItem.offset
+              ? nextItem.offset + 200
+              : currentItem.offset + dur + 1000;
+          if (rawCurrentMs >= currentItem.offset - 500 && rawCurrentMs <= upperBound) {
+            return;
+          }
+        }
+      }
 
       // Calculate effective time with subtitle offset for UI transcript highlighting ONLY
       const effectiveMs = Math.max(0, rawCurrentMs + subtitleOffsetMsRef.current);
@@ -452,27 +472,33 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   // Controls Navigation
   const handlePrevLine = useCallback(() => {
-    if (transcript.length === 0) return;
-    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
-    const targetIdx = baseIdx > 0 ? baseIdx - 1 : 0;
-    handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, focusedIndex, handleSeek]);
+    const items = transcriptRef.current;
+    if (items.length === 0) return;
+    const currentActive = activeIndexRef.current !== -1 ? activeIndexRef.current : focusedIndex;
+    const baseIdx = currentActive >= 0 ? currentActive : 0;
+    const targetIdx = Math.max(0, baseIdx - 1);
+    handleSeek(items[targetIdx].offset, targetIdx);
+  }, [focusedIndex, handleSeek]);
 
   const handleReplayCurrent = useCallback(() => {
-    if (transcript.length === 0) return;
-    const targetIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
-    const target = transcript[targetIdx];
+    const items = transcriptRef.current;
+    if (items.length === 0) return;
+    const currentActive = activeIndexRef.current !== -1 ? activeIndexRef.current : focusedIndex;
+    const targetIdx = currentActive >= 0 ? currentActive : 0;
+    const target = items[targetIdx];
     if (target) {
       handleSeek(target.offset, targetIdx);
     }
-  }, [transcript, activeIndex, focusedIndex, handleSeek]);
+  }, [focusedIndex, handleSeek]);
 
   const handleNextLine = useCallback(() => {
-    if (transcript.length === 0) return;
-    const baseIdx = activeIndex !== -1 ? activeIndex : focusedIndex;
-    const targetIdx = baseIdx < transcript.length - 1 ? baseIdx + 1 : transcript.length - 1;
-    handleSeek(transcript[targetIdx].offset, targetIdx);
-  }, [transcript, activeIndex, focusedIndex, handleSeek]);
+    const items = transcriptRef.current;
+    if (items.length === 0) return;
+    const currentActive = activeIndexRef.current !== -1 ? activeIndexRef.current : focusedIndex;
+    const baseIdx = currentActive >= 0 ? currentActive : 0;
+    const targetIdx = Math.min(items.length - 1, baseIdx + 1);
+    handleSeek(items[targetIdx].offset, targetIdx);
+  }, [focusedIndex, handleSeek]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
@@ -481,7 +507,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       // If paused at sentence end in step mode, pressing Play/Space advances to next sentence
       if (
         autoPauseAtEndRef.current &&
-        lastPausedIdxRef.current === curIdx &&
+        (lastPausedIdxRef.current !== null || isPausedAtSentenceEnd) &&
         curIdx !== -1 &&
         transcriptRef.current.length > 0 &&
         curIdx < transcriptRef.current.length - 1
@@ -495,7 +521,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     } else {
       playerRef.current.pause();
     }
-  }, [handleNextLine]);
+  }, [handleNextLine, isPausedAtSentenceEnd]);
 
   const handleSpeedPreset = useCallback((speed: number) => {
     if (playerRef.current) {
