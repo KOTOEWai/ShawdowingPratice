@@ -239,7 +239,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     if (playerRef.current) {
       lastPausedIdxRef.current = null;
       setIsPausedAtSentenceEnd(false);
-      const targetSec = Math.max(0, (offset - 150) / 1000);
+      const targetSec = Math.max(0, (offset - 30) / 1000);
       playerRef.current.currentTime(targetSec);
       playerRef.current.play();
 
@@ -304,6 +304,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       sources: [{ src: `https://www.youtube.com/watch?v=${id}`, type: "video/youtube" }],
     }));
 
+    let tickTimer: NodeJS.Timeout | null = null;
+
     const syncTranscript = () => {
       if (!player) return;
       const rawCurrentMs = (player.currentTime() || 0) * 1000;
@@ -317,8 +319,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         const currentItem = items[curIdx];
         if (currentItem) {
           const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
-          const endMs = currentItem.offset + duration + 100;
-          const startSec = Math.max(0, (currentItem.offset - 150) / 1000);
+          const endMs = currentItem.offset + duration;
+          const startSec = Math.max(0, (currentItem.offset - 50) / 1000);
 
           if (rawCurrentMs >= endMs) {
             player.currentTime(startSec);
@@ -334,18 +336,31 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
           const rawEnd = currentItem.offset + duration;
           const nextItem = items[curIdx + 1];
+          // Determine strict pause boundary:
+          // Stop BEFORE nextItem begins (at least 60ms before next sentence starts)
+          // so the user never hears a single sound of the next sentence!
           const pauseTargetMs =
             nextItem && nextItem.offset > currentItem.offset
-              ? Math.min(rawEnd + 80, Math.max(currentItem.offset + 400, nextItem.offset - 40))
-              : rawEnd + 80;
+              ? Math.min(rawEnd, nextItem.offset - 60)
+              : rawEnd;
 
           if (rawCurrentMs >= pauseTargetMs && lastPausedIdxRef.current !== curIdx) {
             lastPausedIdxRef.current = curIdx;
-            setIsPausedAtSentenceEnd(true);
             player.pause();
+            player.currentTime(Math.max(0, (pauseTargetMs - 30) / 1000));
+            setIsPausedAtSentenceEnd(true);
+            // Ensure activeIndex is locked on curIdx
+            activeIndexRef.current = curIdx;
+            setActiveIndex(curIdx);
+            setFocusedIndex(curIdx);
             return;
           }
         }
+      }
+
+      // If paused at sentence end in Step Mode, DO NOT allow activeIndex to advance!
+      if (autoPauseAtEndRef.current && lastPausedIdxRef.current !== null && player.paused()) {
+        return;
       }
 
       // Playthrough detection near end of video
@@ -369,10 +384,24 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
     player.on("timeupdate", syncTranscript);
     player.on("seeked", syncTranscript);
-    player.on("play", () => setIsPlaying(true));
-    player.on("pause", () => setIsPlaying(false));
+    player.on("play", () => {
+      setIsPlaying(true);
+      if (tickTimer) clearInterval(tickTimer);
+      tickTimer = setInterval(syncTranscript, 25);
+    });
+    player.on("pause", () => {
+      setIsPlaying(false);
+      if (tickTimer) {
+        clearInterval(tickTimer);
+        tickTimer = null;
+      }
+    });
     player.on("ended", () => {
       setIsPlaying(false);
+      if (tickTimer) {
+        clearInterval(tickTimer);
+        tickTimer = null;
+      }
       triggerLessonCompletion("playthrough");
     });
     player.on("ratechange", () => {
@@ -381,6 +410,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     });
 
     return () => {
+      if (tickTimer) clearInterval(tickTimer);
       if (playerRef.current) {
         playerRef.current.dispose();
         playerRef.current = null;

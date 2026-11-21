@@ -7,10 +7,8 @@ import { TranscriptItem } from "../types";
 export function cleanTranscriptItems(items: TranscriptItem[]): TranscriptItem[] {
   if (!Array.isArray(items)) return [];
 
-  // Match bracketed sound markers: [Music], [applause], [upbeat music], (laughter), ♪, etc.
   const soundRegex =
     /\[[^\]]*(?:music|applause|laughter|cheer|sing|sound|audio|noise|beat|tune|guitar|piano|drum|sigh|cough|groan|scream|snicker|gasp|chuckle|bell|giggle|whisper|snort|silence|intro|outro)[^\]]*\]|\([^\)]*(?:music|applause|laughter|cheer|sound)[^\)]*\)|[♪♫♩♬]+/gi;
-  // Any line completely enclosed in brackets or parentheses (e.g. "[Music]", "(Applause)", "[Inaudible]")
   const bracketOnlyRegex = /^(\[.*\]|\(.*\))$/;
 
   return items
@@ -27,7 +25,6 @@ export function cleanTranscriptItems(items: TranscriptItem[]): TranscriptItem[] 
     .filter((item) => {
       if (!item.text || item.text.length === 0) return false;
       if (bracketOnlyRegex.test(item.text)) return false;
-      // Strip any line that only contains punctuation or musical notes
       if (/^[\s.,\/#!$%\^&\*;:{}=\-_`~()♪♫♩♬[\]]+$/.test(item.text)) return false;
       return true;
     });
@@ -35,45 +32,38 @@ export function cleanTranscriptItems(items: TranscriptItem[]): TranscriptItem[] 
 
 /**
  * Accurately finds the current transcript line based on video playback time (in ms).
- * 1. 120ms anticipation buffer catches initial consonant/voice onset.
- * 2. Overlap resolver picks the latest line that has started.
- * 3. Bridges short breath pauses (< 700ms) to prevent UI flickering between words.
- * 4. Clears active highlight during long silence/music (> 1000ms).
+ * A sentence strictly starts at its offset and does not yield to the next line
+ * until the next line's exact offset is reached.
  */
 export function findActiveTranscriptIndex(items: TranscriptItem[], currentMs: number): number {
   if (!items || items.length === 0) return -1;
-  if (currentMs < items[0].offset - 150) return -1;
-
-  let bestIndex = -1;
-  let bestOffset = -1;
+  if (currentMs < items[0].offset - 50) return -1;
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const duration = item.duration && item.duration > 0 ? item.duration : 3000;
-    const start = item.offset - 120; // 120ms lead-in
-    const end = item.offset + duration + 200; // 200ms tail cushion
+    const nextItem = items[i + 1];
 
-    if (currentMs >= start && currentMs <= end) {
-      if (item.offset >= bestOffset) {
-        bestIndex = i;
-        bestOffset = item.offset;
-      }
+    // Current sentence starts at its offset (-30ms tolerance)
+    const start = item.offset - 30;
+    // Current sentence ends either when the next sentence starts, or at its duration
+    const end =
+      nextItem && nextItem.offset > item.offset
+        ? nextItem.offset - 10
+        : item.offset + duration + 100;
+
+    if (currentMs >= start && currentMs < end) {
+      return i;
     }
   }
 
-  if (bestIndex !== -1) return bestIndex;
-
-  // Short pause bridge between adjacent lines (< 700ms)
-  for (let i = items.length - 1; i >= 0; i--) {
-    const item = items[i];
-    const duration = item.duration && item.duration > 0 ? item.duration : 3000;
-    const end = item.offset + duration;
-    const nextItem = items[i + 1];
-
-    if (currentMs > end && currentMs - end <= 700) {
-      if (!nextItem || currentMs < nextItem.offset - 120) {
-        return i;
-      }
+  // Trailing check for the last sentence in transcript
+  const lastIdx = items.length - 1;
+  const lastItem = items[lastIdx];
+  if (lastItem) {
+    const lastDur = lastItem.duration && lastItem.duration > 0 ? lastItem.duration : 3000;
+    if (currentMs >= lastItem.offset - 30 && currentMs <= lastItem.offset + lastDur + 500) {
+      return lastIdx;
     }
   }
 
