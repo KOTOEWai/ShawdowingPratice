@@ -16,6 +16,7 @@ interface AudioComparisonProps {
   onPlayNative: () => void;
   onMasteredToggle?: () => void;
   isMastered?: boolean;
+  onClose?: () => void;
 }
 
 export default function AudioComparison({
@@ -25,6 +26,7 @@ export default function AudioComparison({
   onPlayNative,
   onMasteredToggle,
   isMastered,
+  onClose,
 }: AudioComparisonProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -273,21 +275,34 @@ export default function AudioComparison({
             )}
           </div>
 
-          {/* Mastered toggle */}
-          {onMasteredToggle && (
-            <button
-              onClick={onMasteredToggle}
-              className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                isMastered
-                  ? "bg-[#6B8E23]/20 text-[#6B8E23] border-[#6B8E23]"
-                  : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
-              }`}
-              title="Mark sentence as mastered"
-            >
-              <CheckCircle2 size={12} />
-              <span>{isMastered ? "Mastered" : "Mark Mastered"}</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Mastered toggle */}
+            {onMasteredToggle && (
+              <button
+                onClick={onMasteredToggle}
+                className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isMastered
+                    ? "bg-[#6B8E23]/20 text-[#6B8E23] border-[#6B8E23]"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
+                }`}
+                title="Mark sentence as mastered"
+              >
+                <CheckCircle2 size={12} />
+                <span>{isMastered ? "Mastered" : "Mark Mastered"}</span>
+              </button>
+            )}
+
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-2 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#8C2727] text-[#7A7A7A] hover:text-[#E9E1D4] text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
+                title="Close voice comparison"
+              >
+                ✕ Close
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Middle Bar: Recording Status or A/B Players */}

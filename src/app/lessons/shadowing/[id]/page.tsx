@@ -23,6 +23,7 @@ import Player from "video.js/dist/types/player";
 import "video.js/dist/video-js.css";
 import "videojs-youtube";
 import {
+  Mic,
   RotateCcw,
   SkipBack,
   SkipForward,
@@ -106,6 +107,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [sentenceTranslation, setSentenceTranslation] = useState<string | null>(null);
   const [translating, setTranslating] = useState<boolean>(false);
   const [showTranslation, setShowTranslation] = useState<boolean>(false);
+
+  // Voice Comparison On-Demand Drawer
+  const [showVoiceComparison, setShowVoiceComparison] = useState<boolean>(false);
 
   // Mastered Lines State (Persisted in localStorage)
   const [masteredIndices, setMasteredIndices] = useState<Set<number>>(new Set());
@@ -1052,6 +1056,20 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                     </button>
                   )}
 
+                  {/* Voice Test / Accent Comparison Toggle */}
+                  <button
+                    onClick={() => setShowVoiceComparison((v) => !v)}
+                    className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      showVoiceComparison
+                        ? "bg-[#B5A642]/20 border-[#B5A642] text-[#B5A642] font-bold"
+                        : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#B5A642] hover:border-[#B5A642]/50"
+                    }`}
+                    title="Record voice and compare accent (Before vs After)"
+                  >
+                    <Mic size={12} className={showVoiceComparison ? "text-[#B5A642]" : "text-[#7A7A7A]"} />
+                    <span>{showVoiceComparison ? "Hide Voice Test" : "Voice Test"}</span>
+                  </button>
+
                   {/* Translate Button */}
                   <button
                     onClick={handleTranslateToggle}
@@ -1140,15 +1158,28 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </motion.div>
               )}
 
-              {/* Local A/B Voice Comparison Widget */}
-              <AudioComparison
-                sentenceText={currentSentence.text}
-                lessonId={id}
-                sentenceIndex={displayIndex}
-                onPlayNative={() => handleSeek(currentSentence.offset, displayIndex)}
-                onMasteredToggle={() => toggleMastered(displayIndex)}
-                isMastered={masteredIndices.has(displayIndex)}
-              />
+              {/* Local A/B Voice Comparison Widget - Only shown on demand when user clicks "Voice Test" */}
+              <AnimatePresence>
+                {showVoiceComparison && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <AudioComparison
+                      sentenceText={currentSentence.text}
+                      lessonId={id}
+                      sentenceIndex={displayIndex}
+                      onPlayNative={() => handleSeek(currentSentence.offset, displayIndex)}
+                      onMasteredToggle={() => toggleMastered(displayIndex)}
+                      isMastered={masteredIndices.has(displayIndex)}
+                      onClose={() => setShowVoiceComparison(false)}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>
