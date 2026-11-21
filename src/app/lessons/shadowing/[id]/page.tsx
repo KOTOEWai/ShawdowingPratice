@@ -45,6 +45,7 @@ import {
   EyeOff,
   Play,
   Pause,
+  PauseCircle,
   Minimize2,
   Maximize2,
   Square,
@@ -74,6 +75,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [isLooping, setIsLooping] = useState<boolean>(false);
   const isLoopingRef = useRef<boolean>(false);
   isLoopingRef.current = isLooping;
+
+  // Step Mode: Automatically pause at sentence end until user clicks Next
+  const [autoPauseAtEnd, setAutoPauseAtEnd] = useState<boolean>(true);
+  const autoPauseAtEndRef = useRef<boolean>(true);
+  autoPauseAtEndRef.current = autoPauseAtEnd;
+  const lastPausedIdxRef = useRef<number | null>(null);
+  const [isPausedAtSentenceEnd, setIsPausedAtSentenceEnd] = useState<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
@@ -146,6 +154,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         setVideoSize(savedSize);
       }
 
+      const savedStepMode = localStorage.getItem("shadowing_step_pause_mode");
+      if (savedStepMode !== null) {
+        const parsed = JSON.parse(savedStepMode);
+        setAutoPauseAtEnd(parsed);
+        autoPauseAtEndRef.current = parsed;
+      }
+
       const completedLessons = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
       const isAlreadyCompleted = completedLessons.some((l: { id: string }) => l.id === id);
       if (isAlreadyCompleted) {
@@ -164,6 +179,18 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       localStorage.setItem("shadowing_video_size", size);
     } catch {}
   };
+
+  // Toggle Step Mode (Auto-pause at sentence end)
+  const toggleAutoPause = useCallback(() => {
+    setAutoPauseAtEnd((prev) => {
+      const next = !prev;
+      autoPauseAtEndRef.current = next;
+      try {
+        localStorage.setItem("shadowing_step_pause_mode", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   // Trigger Lesson Completion
   const triggerLessonCompletion = useCallback(
@@ -210,6 +237,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   // Seek video to specific sentence offset
   const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
     if (playerRef.current) {
+      lastPausedIdxRef.current = null;
+      setIsPausedAtSentenceEnd(false);
       const targetSec = Math.max(0, (offset - 150) / 1000);
       playerRef.current.currentTime(targetSec);
       playerRef.current.play();
@@ -293,6 +322,27 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
           if (rawCurrentMs >= endMs) {
             player.currentTime(startSec);
+            return;
+          }
+        }
+      }
+
+      // Handle Step Mode: Automatically pause at sentence end until user clicks Next
+      if (autoPauseAtEndRef.current && !isLoopingRef.current && curIdx !== -1) {
+        const currentItem = items[curIdx];
+        if (currentItem) {
+          const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
+          const rawEnd = currentItem.offset + duration;
+          const nextItem = items[curIdx + 1];
+          const pauseTargetMs =
+            nextItem && nextItem.offset > currentItem.offset
+              ? Math.min(rawEnd + 80, Math.max(currentItem.offset + 400, nextItem.offset - 40))
+              : rawEnd + 80;
+
+          if (rawCurrentMs >= pauseTargetMs && lastPausedIdxRef.current !== curIdx) {
+            lastPausedIdxRef.current = curIdx;
+            setIsPausedAtSentenceEnd(true);
+            player.pause();
             return;
           }
         }
@@ -386,11 +436,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
     if (playerRef.current.paused()) {
+      const curIdx = activeIndexRef.current;
+      // If paused at sentence end in step mode, pressing Play/Space advances to next sentence
+      if (
+        autoPauseAtEndRef.current &&
+        lastPausedIdxRef.current === curIdx &&
+        curIdx !== -1 &&
+        transcriptRef.current.length > 0 &&
+        curIdx < transcriptRef.current.length - 1
+      ) {
+        handleNextLine();
+        return;
+      }
       playerRef.current.play();
     } else {
       playerRef.current.pause();
     }
-  }, []);
+  }, [handleNextLine]);
 
   const handleSpeedPreset = useCallback((speed: number) => {
     if (playerRef.current) {
@@ -532,6 +594,9 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       } else if (e.key === "s" || e.key === "S") {
         e.preventDefault();
         cycleSpeed();
+      } else if (e.key === "p" || e.key === "P") {
+        e.preventDefault();
+        toggleAutoPause();
       } else if (e.key === "?") {
         e.preventDefault();
         setShowShortcuts((v) => !v);
@@ -549,6 +614,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     focusedIndex,
     toggleMastered,
     cycleSpeed,
+    toggleAutoPause,
   ]);
 
   const formatTime = (ms: number) => {
@@ -804,7 +870,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               <button
                 onClick={handleNextLine}
                 disabled={(activeIndex !== -1 ? activeIndex : focusedIndex) >= transcript.length - 1}
-                className="p-2 sm:px-3 sm:py-2 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 text-xs font-mono cursor-pointer"
+                className={`p-2 sm:px-3 sm:py-2 rounded-sm border transition-all flex items-center gap-1.5 text-xs font-mono cursor-pointer ${
+                  isPausedAtSentenceEnd
+                    ? "bg-[#B5A642] text-[#1F132A] border-[#B5A642] font-bold animate-pulse shadow-md"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642] disabled:opacity-30 disabled:cursor-not-allowed"
+                }`}
                 title="Next Line (→ / Enter)"
               >
                 <span className="hidden sm:inline">Next</span>
@@ -825,6 +895,20 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               >
                 <Repeat size={13} className={isLooping ? "animate-spin" : ""} />
                 <span>Loop {isLooping ? "ON" : "OFF"}</span>
+              </button>
+
+              {/* Step Mode (Pause at sentence end until user clicks Next) */}
+              <button
+                onClick={toggleAutoPause}
+                className={`px-2.5 py-2 rounded-sm border text-xs font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  autoPauseAtEnd
+                    ? "bg-[#B5A642] border-[#B5A642] text-[#1F132A] font-bold"
+                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#E9E1D4]/80 hover:text-[#E9E1D4] hover:border-[#B5A642]/40"
+                }`}
+                title="Step Mode: Automatically pause at sentence end until you click Next (P)"
+              >
+                <PauseCircle size={13} />
+                <span>Step Mode {autoPauseAtEnd ? "ON" : "OFF"}</span>
               </button>
             </div>
 
@@ -951,6 +1035,36 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   ))}
                 </p>
               </div>
+
+              {/* Step Mode: Sentence Paused for Shadowing Notification Banner */}
+              {isPausedAtSentenceEnd && (
+                <div className="mt-3 px-3 py-2 bg-[#2E2E2E] border-l-2 border-[#B5A642] rounded-xs flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#E9E1D4]">
+                  <div className="flex items-center gap-2">
+                    <PauseCircle size={14} className="text-[#B5A642] shrink-0" />
+                    <span className="font-bold text-[#B5A642]">Sentence Paused:</span>
+                    <span className="text-[#E9E1D4]/80 text-[11px]">Ready for shadowing practice!</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleReplayCurrent}
+                      className="px-2 py-1 bg-[#1F132A] border border-[#3A3A3A] hover:border-[#B5A642] rounded-xs text-[11px] text-[#E9E1D4] hover:text-[#B5A642] transition-colors cursor-pointer flex items-center gap-1"
+                      title="Replay this sentence"
+                    >
+                      <RotateCcw size={11} />
+                      <span>Replay (R)</span>
+                    </button>
+                    <button
+                      onClick={handleNextLine}
+                      disabled={displayIndex >= transcript.length - 1}
+                      className="px-2.5 py-1 bg-[#B5A642] text-[#1F132A] font-bold rounded-xs text-[11px] hover:bg-[#B5A642]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
+                      title="Play next sentence"
+                    >
+                      <span>Next Line (→ / Enter)</span>
+                      <SkipForward size={11} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Contextual Translation Drawer */}
               {showTranslation && sentenceTranslation && (

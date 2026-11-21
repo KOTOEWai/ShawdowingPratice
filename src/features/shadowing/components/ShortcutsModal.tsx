@@ -13,11 +13,12 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: "Space", desc: "Play / Pause video playback" },
-    { key: "R", desc: "Replay current active sentence" },
+    { key: "Space", desc: "Play / Pause (or continue to next in Step Mode)" },
+    { key: "Enter or →", desc: "Play next sentence (Step Mode)" },
+    { key: "R", desc: "Replay current sentence" },
+    { key: "P", desc: "Toggle Step Mode (Auto-pause at sentence end)" },
     { key: "L", desc: "Toggle single sentence loop" },
     { key: "← (Left)", desc: "Jump to previous sentence" },
-    { key: "→ (Right)", desc: "Jump to next sentence" },
     { key: "M", desc: "Toggle Mastered status for current sentence" },
     { key: "S", desc: "Cycle playback speed (0.75x → 1.0x → 1.25x → 1.5x)" },
     { key: "?", desc: "Toggle this keyboard shortcuts menu" },
