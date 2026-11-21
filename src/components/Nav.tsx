@@ -4,130 +4,203 @@ import Link from "next/link";
 import React, { useState } from "react";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, User as UserIcon, LogIn, ArrowRight } from "lucide-react";
+import { LogOut, User as UserIcon, LogIn, ArrowRight, Plus } from "lucide-react";
+import { CustomVideoModal } from "@/features/shadowing";
+
 export default function Nav() {
   const [open, setOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
   const { data: session } = useSession();
 
   return (
-    <nav className="sticky top-0 w-full px-6 md:px-16 lg:px-24 xl:px-32 py-4 flex items-center justify-between z-50 glass-card border-x-0 border-t-0 rounded-none bg-slate-950/60">
+    <>
+      <CustomVideoModal isOpen={customOpen} onClose={() => setCustomOpen(false)} />
+      <nav className="sticky top-0 w-full px-6 md:px-16 lg:px-24 xl:px-32 py-3.5 flex items-center justify-between z-40 bg-[#1F132A] border-b border-[#3A3A3A] text-[#E9E1D4]">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logo.jpg"
+            width={34}
+            height={34}
+            alt="logo"
+            className="rounded-sm border border-[#3A3A3A]"
+          />
+          <span className="font-bold font-mono text-[#E9E1D4] tracking-wider hidden sm:inline text-base uppercase">
+            Shadowing<span className="text-[#B5A642]">.</span>
+          </span>
+        </Link>
 
-      {/* Logo */}
-      <Link href="/">
-        <Image src={'/logo.jpg'}
-          width={40}
-          height={40}
-          alt="logo"
-          className="rounded" />
-      </Link>
-
-      {/* Desktop Menu */}
-      <ul className="text-slate-200 md:flex hidden items-center gap-10 font-medium">
-        <li><Link href="/" className="hover:text-indigo-400 transition-colors">Home</Link></li>
-        <li><Link href="/Topics" className="hover:text-indigo-400 transition-colors">Topics</Link></li>
-        <li><Link href="/Vocabulary" className="hover:text-indigo-400 transition-colors">Vocabulary</Link></li>
-        <li><Link href="/Pricing" className="hover:text-indigo-400 transition-colors">Pricing</Link></li>
-      </ul>
-
-      {/* Desktop Button / User Profile */}
-      <div className="md:flex hidden items-center gap-4">
-        {session ? (
-          <div className="flex items-center gap-4">
-            <Link
-              href="/profile"
-              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all"
-            >
-              {session.user?.image ? (
-                <Image src={session.user.image} width={24} height={24} className="rounded-full" alt="avatar" />
-              ) : (
-                <UserIcon size={20} className="text-indigo-400" />
-              )}
-              <span className="text-sm font-bold text-white max-w-[100px] truncate">{session.user?.name}</span>
+        {/* Desktop Menu */}
+        <ul className="text-[#E9E1D4]/80 md:flex hidden items-center gap-8 font-mono text-xs uppercase tracking-wider">
+          <li>
+            <Link href="/" className="hover:text-[#B5A642] transition-colors">
+              Home
             </Link>
+          </li>
+          <li>
+            <Link href="/Topics" className="hover:text-[#B5A642] transition-colors">
+              Topics
+            </Link>
+          </li>
+          <li>
+            <Link href="/Vocabulary" className="hover:text-[#B5A642] transition-colors">
+              Vocabulary
+            </Link>
+          </li>
+          <li>
             <button
-              onClick={() => signOut()}
-              className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20"
-              title="Logout"
+              onClick={() => setCustomOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] text-[#B5A642] hover:bg-[#B5A642] hover:text-[#1F132A] transition-colors text-xs font-mono font-bold uppercase cursor-pointer"
             >
-              <LogOut size={20} />
+              <Plus size={13} />
+              <span>Custom Video</span>
             </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="text-slate-200 hover:text-indigo-400 font-bold transition-colors">
-              Login
-            </Link>
-            <Link href="/register" className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm px-8 py-2.5 rounded-full font-semibold shadow-lg shadow-indigo-500/20 hover:scale-105 transition-transform">
-              Get started
-            </Link>
-          </div>
-        )}
-      </div>
+          </li>
+        </ul>
 
-      {/* Mobile Button */}
-      <button
-        aria-label="menu"
-        className="md:hidden text-white"
-        onClick={() => setOpen(!open)}
-      >
-        ☰
-      </button>
-
-      {/* Mobile Menu */}
-      {open && (
-        <div className="absolute top-full left-0 w-full glass-card p-6 md:hidden border-x-0 border-b-0 rounded-none bg-slate-900/95 animate-in slide-in-from-top duration-300">
-          <ul className="flex flex-col gap-6 text-slate-200 font-medium">
-            <li><Link href="/" onClick={() => setOpen(false)} className="hover:text-indigo-400">Home</Link></li>
-            <li><Link href="/Topics" onClick={() => setOpen(false)} className="hover:text-indigo-400">Topics</Link></li>
-            <li><Link href="/Vocabulary" onClick={() => setOpen(false)} className="hover:text-indigo-400">Vocabulary</Link></li>
-            <li><Link href="/Pricing" onClick={() => setOpen(false)} className="hover:text-indigo-400">Pricing</Link></li>
-          </ul>
-
+        {/* Desktop Button / User Profile */}
+        <div className="md:flex hidden items-center gap-4">
           {session ? (
-            <div className="mt-8 space-y-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/profile"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-4 glass-card border-white/10 rounded-2xl hover:bg-white/5 transition-all"
+                className="flex items-center gap-2.5 px-3 py-1.5 bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] rounded-sm transition-colors"
               >
                 {session.user?.image ? (
-                  <Image src={session.user.image} width={40} height={40} className="rounded-full" alt="avatar" />
+                  <Image
+                    src={session.user.image}
+                    width={20}
+                    height={20}
+                    className="rounded-sm"
+                    alt="avatar"
+                  />
                 ) : (
-                  <UserIcon size={32} className="text-indigo-400" />
+                  <UserIcon size={16} className="text-[#B5A642]" />
                 )}
-                <div className="flex-1">
-                  <p className="font-black text-white">{session.user?.name}</p>
-                  <p className="text-xs text-slate-500">{session.user?.email}</p>
-                </div>
-                <ArrowRight size={18} className="text-slate-500" />
+                <span className="text-xs font-mono text-[#E9E1D4] max-w-[120px] truncate">
+                  {session.user?.name}
+                </span>
               </Link>
               <button
                 onClick={() => signOut()}
-                className="w-full flex items-center justify-center gap-3 py-4 bg-rose-600/20 text-rose-400 rounded-2xl font-bold border border-rose-500/20"
+                className="p-1.5 rounded-sm bg-[#2E2E2E] text-[#E9E1D4]/70 hover:text-[#8C2727] hover:border-[#8C2727] transition-colors border border-[#3A3A3A] cursor-pointer"
+                title="Logout"
               >
-                <LogOut size={20} /> Logout
+                <LogOut size={15} />
               </button>
             </div>
           ) : (
-            <div className="mt-8 flex flex-col gap-4">
+            <div className="flex items-center gap-4">
               <Link
                 href="/login"
-                onClick={() => setOpen(false)}
-                className="w-full flex items-center justify-center gap-3 py-4 bg-white/5 text-white rounded-2xl font-bold border border-white/10"
+                className="text-[#E9E1D4]/80 hover:text-[#B5A642] text-xs font-mono uppercase tracking-wider transition-colors"
               >
-                <LogIn size={20} /> Login ဝင်မယ်
+                Login
               </Link>
               <Link
                 href="/register"
-                onClick={() => setOpen(false)}
-                className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-bold"
+                className="px-4 py-2 bg-[#B5A642] text-[#1F132A] hover:bg-[#c4b54e] rounded-sm font-mono text-xs font-bold uppercase tracking-wider transition-colors"
               >
                 Get started
               </Link>
             </div>
           )}
         </div>
-      )}
-    </nav>
+
+        {/* Mobile Button */}
+        <button
+          aria-label="menu"
+          className="md:hidden text-[#E9E1D4] p-1.5 rounded-sm border border-[#3A3A3A]"
+          onClick={() => setOpen(!open)}
+        >
+          ☰
+        </button>
+
+        {/* Mobile Menu */}
+        {open && (
+          <div className="absolute top-full left-0 w-full p-6 md:hidden border-b border-[#3A3A3A] bg-[#1F132A] text-[#E9E1D4]">
+            <ul className="flex flex-col gap-4 text-[#E9E1D4]/90 font-mono text-xs uppercase tracking-wider">
+              <li>
+                <Link href="/" onClick={() => setOpen(false)} className="hover:text-[#B5A642]">
+                  Home
+                </Link>
+              </li>
+              <li>
+                <Link href="/Topics" onClick={() => setOpen(false)} className="hover:text-[#B5A642]">
+                  Topics
+                </Link>
+              </li>
+              <li>
+                <Link href="/Vocabulary" onClick={() => setOpen(false)} className="hover:text-[#B5A642]">
+                  Vocabulary
+                </Link>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    setCustomOpen(true);
+                  }}
+                  className="flex items-center gap-2 text-[#B5A642] font-mono text-xs uppercase font-bold"
+                >
+                  <Plus size={14} />
+                  <span>Practice Custom Video</span>
+                </button>
+              </li>
+            </ul>
+
+            {session ? (
+              <div className="mt-5 pt-5 border-t border-[#3A3A3A] space-y-3">
+                <Link
+                  href="/profile"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-3 bg-[#2E2E2E] border border-[#3A3A3A] rounded-sm"
+                >
+                  {session.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      width={32}
+                      height={32}
+                      className="rounded-sm"
+                      alt="avatar"
+                    />
+                  ) : (
+                    <UserIcon size={20} className="text-[#B5A642]" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-bold text-[#E9E1D4] text-xs font-mono">{session.user?.name}</p>
+                    <p className="text-[11px] text-[#7A7A7A] font-mono">{session.user?.email}</p>
+                  </div>
+                  <ArrowRight size={14} className="text-[#7A7A7A]" />
+                </Link>
+                <button
+                  onClick={() => signOut()}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#2E2E2E] text-[#8C2727] hover:bg-[#8C2727] hover:text-[#E9E1D4] rounded-sm text-xs font-mono uppercase font-bold border border-[#3A3A3A] transition-colors"
+                >
+                  <LogOut size={14} /> Logout
+                </button>
+              </div>
+            ) : (
+              <div className="mt-5 pt-5 border-t border-[#3A3A3A] flex flex-col gap-2.5">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#2E2E2E] text-[#E9E1D4] rounded-sm text-xs font-mono uppercase border border-[#3A3A3A]"
+                >
+                  <LogIn size={14} /> Login
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setOpen(false)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#B5A642] text-[#1F132A] font-bold font-mono text-xs uppercase rounded-sm text-center"
+                >
+                  Get started
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+      </nav>
+    </>
   );
 }

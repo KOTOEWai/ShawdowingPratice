@@ -1,11 +1,9 @@
 import NextAuth from "next-auth";
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import clientPromise from "@/app/lib/mongodb";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import prisma from "@/lib/prisma";
 import authConfig from "./auth.config";
 import bcrypt from "bcryptjs";
 import Credentials from "next-auth/providers/credentials";
-import dbConnect from "@/app/lib/dbConnect";
-import User from "@/models/User";
 
 // We need to re-define the Credentials provider here because it needs database access
 const providers = [
@@ -14,8 +12,9 @@ const providers = [
         async authorize(credentials) {
             if (!credentials?.email || !credentials?.password) return null;
 
-            await dbConnect();
-            const user = await User.findOne({ email: credentials.email as string });
+            const user = await prisma.user.findUnique({
+                where: { email: credentials.email as string },
+            });
 
             if (!user || !user.password) return null;
 
@@ -27,7 +26,7 @@ const providers = [
             if (!isPasswordCorrect) return null;
 
             return {
-                id: user._id.toString(),
+                id: user.id,
                 name: user.name,
                 email: user.email,
                 image: user.image,
@@ -37,7 +36,7 @@ const providers = [
 ];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-    adapter: MongoDBAdapter(clientPromise),
+    adapter: PrismaAdapter(prisma),
     session: { strategy: "jwt" },
     pages: {
         signIn: "/login",

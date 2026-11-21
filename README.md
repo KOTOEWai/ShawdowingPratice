@@ -1,88 +1,94 @@
-# 🎧 Shadowing English Learning App
+# 🎧 Shadowing - Master English Fluency
 
-အင်္ဂလိပ်စကားပြောစွမ်းရည်ကို **Shadowing Method** နည်းလမ်းဖြင့် ထိရောက်စွာ လေ့ကျင့်နိုင်ရန် ဒီ App ကို ဒီဇိုင်းဆွဲထားပါတယ်။
-နားထောင် → အတူလိုက်ပြော → ပြန်လည်လေ့ကျင့် ဆိုတဲ့ Flow ကို အပြည့်အဝ ထောက်ပံ့ပေးနိုင်အောင် Modern Web Technologies တွေကို အသုံးပြုထားပါတယ်။
+A modern, full-stack web application designed to accelerate English speaking fluency through the **Shadowing Method** (listen → repeat simultaneously → receive instant AI pronunciation feedback).
+
+Built with Next.js 16 (App Router), React 19, Tailwind CSS v4, Prisma ORM, Neon PostgreSQL, Upstash Redis, and Google Gemini AI.
 
 ---
 
 ## ✨ Key Features
 
 ### 1️⃣ Smart Video Player
+* **Video.js & YouTube Integration**: Seamless, buffer-free streaming of authentic native videos.
+* **Playback Speed Control**: Flexible speed controls (0.5x to 1.5x) to match individual learning paces.
 
-Shadowing လေ့ကျင့်ရာမှာ အရေးအကြီးဆုံးဖြစ်တဲ့ Video Experience ကို ချောမွေ့ပြီး ထိန်းချုပ်လွယ်အောင် ဖန်တီးထားပါတယ်။
+### 2️⃣ Interactive Transcript & Auto-Scroll
+* **Synchronized Highlighting**: Automatically highlights and scrolls to the spoken line in real time.
+* **Click-to-Seek**: Jump directly to any timestamp in the video by clicking on the transcript.
 
-* **Video.js & YouTube Integration**
-  YouTube API ကို အသုံးပြုပြီး ဗီဒီယိုများကို Stable ဖြစ်စွာ Streaming ပြုလုပ်နိုင်ပါတယ်။
+### 3️⃣ Instant Word Explorer & Pronunciation
+* **Dictionary Popover**: Click on any word in the transcript to inspect definition, part of speech, synonyms, and external dictionary links (Oxford, Cambridge).
+* **Audio Pronunciation**: Listen to standard US/UK pronunciations powered by Web Speech and Dictionary APIs.
 
-* **Playback Speed Control**
-  Shadowing အဆင်ပြေစေရန် 0.5x မှ 1.5x အထိ အသံအမြန်နှုန်းကို စိတ်ကြိုက် ပြောင်းလဲနိုင်ပါတယ်။
+### 4️⃣ Real-Time AI Voice Feedback
+* **Speech Recording**: Capture voice directly in the browser with `MediaRecorder`.
+* **Gemini AI Pronunciation Analysis**: Transcribe audio and calculate accuracy percentages against the target sentence in real time.
 
----
+### 5️⃣ Smart Vocabulary & Flashcards
+* **Vocabulary Bank**: Save unfamiliar words with one click for spaced review.
+* **Interactive 3D Flashcards**: Test recall and practice with intelligent review queues.
 
-### 2️⃣ Interactive Transcript
+### 6️⃣ Dynamic Category Discovery & Caching
+* **Curated Channels**: Short Movies, Daily English, Business English, and IELTS Listening.
+* **Upstash Redis Caching**: 24-hour API response caching to optimize YouTube API quota usage.
 
-နားထောင်ရင်း ဖတ်၊ ဖတ်ရင်း ပြန်ပြောနိုင်အောင် Transcript System ကို Smart ဖြစ်အောင် တည်ဆောက်ထားပါတယ်။
-
-* **Auto-Scroll & Highlighting**
-  ဗီဒီယိုတွင် ပြောနေသော အသံနှင့်အညီ Transcript စာသားများက အလိုအလျောက် Scroll ဖြစ်ပြီး လက်ရှိပြောနေသော စာကြောင်းကို Highlight ပြပေးပါတယ်။
-
-* **Click-to-Seek**
-  Transcript ထဲက စာကြောင်းတစ်ကြောင်းချင်းစီကို နှိပ်လိုက်ရုံနဲ့ ဗီဒီယိုရဲ့ သက်ဆိုင်ရာ အချိန်သို့ ချက်ချင်း Jump လုပ်နိုင်ပါတယ်။
-
----
-
-### 3️⃣ Word Explorer
-
-စကားလုံးအသစ်တွေကို App ထဲမှာပဲ နားလည်နိုင်အောင် Word Learning Experience ကို ပေါင်းထည့်ထားပါတယ်။
-
-* **Instant Meaning Popover**
-  Transcript ထဲက စကားလုံးကို Click လုပ်လိုက်တာနဲ့ အဓိပ္ပာယ်၊ Usage ကို Popover အနေနဲ့ ပြပေးပါတယ်။
-
-* **Audio Pronunciation**
-  စကားလုံးတစ်လုံးချင်းစီရဲ့ အသံထွက်ကို Native-like Audio နဲ့ နားထောင်နိုင်ပါတယ်။
-
----
-
-### 4️⃣ Vocabulary Bank
-
-သင့်ရဲ့ ကိုယ်ပိုင် Dictionary တစ်ခုလို အသုံးပြုနိုင်တဲ့ Vocabulary System ပါဝင်ပါတယ်။
-
-* **Save Words**
-  မသိသေးတဲ့ စကားလုံးတွေကို တစ်ချက်နှိပ်ရုံနဲ့ သိမ်းဆည်းထားနိုင်ပါတယ်။
-
-* **Flashcards Practice**
-  သိမ်းဆည်းထားတဲ့ စကားလုံးတွေကို Flashcards နဲ့ ပြန်လည်လေ့ကျင့်ပြီး မှတ်ဉာဏ်ကို အားကောင်းစေပါတယ်။
-
----
-
-### 5️⃣ Dynamic Topics & Content
-
-မိမိစိတ်ဝင်စားရာ အကြောင်းအရာအလိုက် လေ့လာနိုင်အောင် Content Structure ကို Flexible ဖြစ်အောင် တည်ဆောက်ထားပါတယ်။
-
-* **Category-based Discovery**
-  Movies, Business, IELTS, Daily Conversation စတဲ့ Category များအလိုက် ဗီဒီယိုများကို လွယ်ကူစွာ ရှာဖွေနိုင်ပါတယ်။
-
-* **Dynamic Routing (Next.js)**
-  Next.js Dynamic Slugs ကို အသုံးပြုထားပြီး Topic အသစ်များကို Code ပြောင်းလဲမှုအနည်းဆုံးနဲ့ ထပ်တိုးနိုင်ပါတယ်။
+### 7️⃣ Authentication & Profile Management
+* **NextAuth v5 (Auth.js) & Prisma ORM**: Secure credential-based registration and Google OAuth.
+* **Neon PostgreSQL**: Scalable serverless database storing users, accounts, sessions, and vocabulary.
 
 ---
 
 ## 🚀 Tech Stack
 
-ဒီ Project ကို Modern & Scalable ဖြစ်အောင် အောက်ပါ Technology Stack များကို အသုံးပြုထားပါတယ်။
-
-* **Framework**: Next.js 15 (App Router)
-* **Styling**: Tailwind CSS
+* **Framework**: Next.js 16 (App Router, Turbopack) + React 19
+* **Database & ORM**: Prisma 6 + Neon PostgreSQL
+* **Caching**: Upstash Redis
+* **Authentication**: NextAuth v5 + `@auth/prisma-adapter`
+* **AI Engine**: Google Gemini API (`@google/generative-ai`)
+* **Styling**: Tailwind CSS v4 (Railway Design System Tokens)
 * **Animation**: Framer Motion
-* **Video Player**: Video.js
+* **Video Player**: Video.js + `videojs-youtube`
 * **Icons**: Lucide React
 
 ---
 
-## 🎯 Goal
+## 🛠️ Getting Started
 
-ဒီ App ရဲ့ အဓိကရည်ရွယ်ချက်ကတော့ —
+### 1. Clone the repository
+```bash
+git clone https://github.com/your-username/shadowing-app.git
+cd shadowing-app
+```
 
-> "အင်္ဂလိပ်စကားပြောကို မကြောက်တော့အောင် Shadowing နည်းလမ်းနဲ့ နေ့စဉ် လေ့ကျင့်နိုင်စေဖို့" ဖြစ်ပါတယ်။
+### 2. Install dependencies
+```bash
+npm install --legacy-peer-deps
+```
 
-Beginner မှ Advanced အထိ အသုံးပြုနိုင်ပြီး Self-study အတွက်လည်း အရမ်းသင့်တော်ပါတယ် ✨
+### 3. Environment Variables
+Create a `.env` file in the root directory:
+```env
+DATABASE_URL="postgresql://[user]:[password]@[neon-host]/[dbname]?sslmode=require"
+AUTH_SECRET="your-auth-secret"
+AUTH_GOOGLE_ID="your-google-client-id"
+AUTH_GOOGLE_SECRET="your-google-client-secret"
+AUTH_TRUST_HOST=true
+
+YOUTUBE_API_KEY="your-youtube-api-key"
+UPSTASH_REDIS_REST_URL="your-upstash-redis-url"
+UPSTASH_REDIS_REST_TOKEN="your-upstash-redis-token"
+SUPADATA_API_KEY="your-supadata-api-key"
+GEMINI_API_KEY="your-gemini-api-key"
+```
+
+### 4. Push database schema
+```bash
+npx prisma db push
+```
+
+### 5. Start the development server
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.

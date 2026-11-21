@@ -1,0 +1,9 @@
+export { default as HeroSection } from "./components/HeroSection";
+export { default as SentenceOfTheDay } from "./components/SentenceOfTheDay";
+export { default as StatsBar } from "./components/StatsBar";
+export { default as HowItWorks } from "./components/HowItWorks";
+export { default as FeaturedTopics } from "./components/FeaturedTopics";
+export { default as Benefits } from "./components/Benefits";
+export { default as Reviews } from "./components/Reviews";
+export { default as FAQ } from "./components/FAQ";
+export { default as CallToAction } from "./components/CallToAction";
