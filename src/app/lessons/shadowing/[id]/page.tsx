@@ -74,16 +74,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
 
-  // Advanced Learning Modes: 'normal' | 'echo' | 'blind'
-  const [shadowingMode, setShadowingMode] = useState<"normal" | "echo" | "blind">("normal");
-  // Echo Mode: Dynamic Adaptive Ratio (1.0x, 1.2x, 1.5x) or "manual" (Wait for Spacebar / Tap)
-  const [echoMultiplier, setEchoMultiplier] = useState<number | "manual">(1.2);
-  const echoMultiplierRef = useRef<number | "manual">(1.2);
-  echoMultiplierRef.current = echoMultiplier;
-
-  const [echoCountdown, setEchoCountdown] = useState<number | null>(null);
-  const [echoTotalPauseSec, setEchoTotalPauseSec] = useState<number>(3);
-  const echoIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Advanced Learning Modes: 'normal' | 'blind'
+  const [shadowingMode, setShadowingMode] = useState<"normal" | "blind">("normal");
 
   const [peekBlind, setPeekBlind] = useState<boolean>(false);
   const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
@@ -113,10 +105,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const activeIndexRef = useRef(-1);
   activeIndexRef.current = activeIndex;
 
-  const shadowingModeRef = useRef<"normal" | "echo" | "blind">("normal");
+  const shadowingModeRef = useRef<"normal" | "blind">("normal");
   shadowingModeRef.current = shadowingMode;
-
-  const isEchoPausingRef = useRef(false);
 
   // Sync transcriptRef & masteredIndicesRef
   useEffect(() => {
@@ -142,21 +132,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       // Check bookmark
       const savedLessons = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
       setIsBookmarked(savedLessons.some((l: { id: string }) => l.id === id));
-
-      // Restore Echo Multiplier preference (Method 1 + 3)
-      const savedMult = localStorage.getItem("shadowing_echo_multiplier");
-      if (savedMult) {
-        if (savedMult === "manual") {
-          setEchoMultiplier("manual");
-          echoMultiplierRef.current = "manual";
-        } else {
-          const num = parseFloat(savedMult);
-          if (!isNaN(num)) {
-            setEchoMultiplier(num);
-            echoMultiplierRef.current = num;
-          }
-        }
-      }
 
       // Check if already completed
       const completedList = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
@@ -188,14 +163,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
    * Seek with pre-roll buffer (150ms lead-in) so speech starts naturally.
    */
   const handleSeek = useCallback((offset: number, explicitIndex?: number) => {
-    // Cleanly cancel any running countdown so any newly selected sentence starts fresh
-    if (echoIntervalRef.current) {
-      clearInterval(echoIntervalRef.current);
-      echoIntervalRef.current = null;
-    }
-    setEchoCountdown(null);
-    isEchoPausingRef.current = false;
-
     if (playerRef.current) {
       const targetSec = Math.max(0, (offset - 150) / 1000);
       playerRef.current.currentTime(targetSec);
@@ -213,90 +180,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       }
     }
   }, []);
-
-  // Start or Restart Echo Countdown (Method 1: Dynamic Adaptive Duration, Method 3: Manual Spacebar Hold)
-  const startEchoCountdown = useCallback((customSec?: number) => {
-    if (echoIntervalRef.current) {
-      clearInterval(echoIntervalRef.current);
-      echoIntervalRef.current = null;
-    }
-
-    const curIdx = activeIndexRef.current;
-    const currentItem =
-      curIdx >= 0 && curIdx < transcriptRef.current.length ? transcriptRef.current[curIdx] : null;
-
-    let sec: number;
-    if (typeof customSec === "number") {
-      sec = customSec;
-    } else if (echoMultiplierRef.current === "manual") {
-      sec = -1; // -1 indicates manual hold until user taps Space or Next
-    } else {
-      const durSec = (currentItem?.duration && currentItem.duration > 0 ? currentItem.duration : 2500) / 1000;
-      const mult = typeof echoMultiplierRef.current === "number" ? echoMultiplierRef.current : 1.2;
-      sec = Math.max(1.8, Math.round(durSec * mult * 10) / 10);
-    }
-
-    isEchoPausingRef.current = true;
-    if (playerRef.current && !playerRef.current.paused()) {
-      playerRef.current.pause();
-    }
-
-    if (sec === -1) {
-      setEchoTotalPauseSec(-1);
-      setEchoCountdown(-1);
-      return;
-    }
-
-    setEchoTotalPauseSec(sec);
-    setEchoCountdown(sec);
-
-    let remaining = sec;
-    echoIntervalRef.current = setInterval(() => {
-      remaining = Math.round((remaining - 0.1) * 10) / 10;
-      if (remaining > 0) {
-        setEchoCountdown(remaining);
-      } else {
-        if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
-        echoIntervalRef.current = null;
-        setEchoCountdown(null);
-        isEchoPausingRef.current = false;
-        const nextIdx = activeIndexRef.current + 1;
-        if (nextIdx < transcriptRef.current.length) {
-          handleSeek(transcriptRef.current[nextIdx].offset, nextIdx);
-        } else if (playerRef.current) {
-          playerRef.current.play();
-        }
-      }
-    }, 100);
-  }, [handleSeek]);
-
-  // Skip / Continue Echo Countdown early
-  const skipEchoCountdown = useCallback(() => {
-    if (echoIntervalRef.current) {
-      clearInterval(echoIntervalRef.current);
-      echoIntervalRef.current = null;
-    }
-    setEchoCountdown(null);
-    isEchoPausingRef.current = false;
-    const nextIdx = activeIndexRef.current + 1;
-    if (nextIdx < transcriptRef.current.length) {
-      handleSeek(transcriptRef.current[nextIdx].offset, nextIdx);
-    } else if (playerRef.current) {
-      playerRef.current.play();
-    }
-  }, [handleSeek]);
-
-  // Cancel echo countdown if user switches away from echo mode
-  useEffect(() => {
-    if (shadowingMode !== "echo") {
-      if (echoIntervalRef.current) {
-        clearInterval(echoIntervalRef.current);
-        echoIntervalRef.current = null;
-      }
-      setEchoCountdown(null);
-      isEchoPausingRef.current = false;
-    }
-  }, [shadowingMode]);
 
   // Trigger Lesson Completion (Method 1: >=80% Mastery, Method 2: Video Playthrough, or Manual)
   const triggerLessonCompletion = useCallback(
@@ -399,30 +282,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         }
       }
 
-      // Handle Echo Shadowing Auto-Pause
-      if (
-        shadowingModeRef.current === "echo" &&
-        !isEchoPausingRef.current &&
-        activeIndexRef.current !== -1
-      ) {
-        const curIdx = activeIndexRef.current;
-        const currentItem = items[curIdx];
-        if (currentItem) {
-          const nextItem = items[curIdx + 1];
-          const duration = currentItem.duration && currentItem.duration > 0 ? currentItem.duration : 3000;
-          // Calculate exact end of this sentence: either line ends (+100ms) or right before next line begins
-          let endMs = currentItem.offset + duration + 100;
-          if (nextItem && nextItem.offset > currentItem.offset) {
-            endMs = Math.min(endMs, nextItem.offset - 50);
-          }
-
-          if (currentMs >= endMs) {
-            startEchoCountdown();
-            return;
-          }
-        }
-      }
-
       // Method 2: Video Playthrough detection near end of lesson
       try {
         const dur = typeof player.duration === "function" ? player.duration() : 0;
@@ -457,7 +316,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         playerRef.current = null;
       }
     };
-  }, [id, handleSeek, triggerLessonCompletion, startEchoCountdown]);
+  }, [id, handleSeek, triggerLessonCompletion]);
 
   /* 3. Handle Auto-Scroll INSIDE transcript container ONLY (Never scroll the main window) */
   useEffect(() => {
@@ -617,15 +476,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       const tag = (document.activeElement?.tagName || "").toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-      // When Echo Countdown is pausing: Space, Enter, or ArrowRight skips to next line immediately
-      if (echoCountdown !== null) {
-        if (e.code === "Space" || e.code === "Enter" || e.key === "ArrowRight") {
-          e.preventDefault();
-          skipEchoCountdown();
-          return;
-        }
-      }
-
       if (e.code === "Space") {
         e.preventDefault();
         if (playerRef.current) {
@@ -662,7 +512,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleReplayCurrent, handlePrevLine, handleNextLine, activeIndex, focusedIndex, toggleMastered, cycleSpeed, echoCountdown, skipEchoCountdown]);
+  }, [handleReplayCurrent, handlePrevLine, handleNextLine, activeIndex, focusedIndex, toggleMastered, cycleSpeed]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -789,25 +639,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         {/* Video Player */}
         <div className="relative aspect-video rounded-xl overflow-hidden border border-[#33323E] bg-black shadow-2xl">
           <div ref={videoRef} data-vjs-player />
-
-          {/* Subtle Floating Echo Indicator over bottom edge of video (Zero video obstruction) */}
-          {echoCountdown !== null && (
-            <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2 bg-[#13111C]/90 backdrop-blur-md border border-[#853BCE]/50 px-3 py-1.5 rounded-full shadow-2xl animate-in fade-in">
-              <span className="w-2 h-2 rounded-full bg-[#A667E4] animate-ping" />
-              <Mic size={13} className="text-[#A667E4]" />
-              <span className="text-xs font-mono font-medium text-white">
-                {echoCountdown === -1 ? "Echo: Repeat out loud" : `Echo ${echoCountdown.toFixed(1)}s`}
-              </span>
-              <button
-                onClick={skipEchoCountdown}
-                className="ml-1 px-2.5 py-0.5 rounded-full bg-[#853BCE] hover:bg-[#9745e6] text-[11px] font-mono text-white transition-all cursor-pointer flex items-center gap-1 shadow"
-                title="Continue to next line (Space or Enter)"
-              >
-                <span>Next</span>
-                <SkipForward size={11} />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Shadowing Methodology Mode Bar */}
@@ -820,20 +651,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             <div className="flex items-center gap-1.5">
               {[
                 { id: "normal", label: "Normal", icon: <Headphones size={12} />, title: "Standard continuous video practice" },
-                {
-                  id: "echo",
-                  label: "Echo (Auto-Pause)",
-                  icon: <Mic size={12} />,
-                  title:
-                    echoMultiplier === "manual"
-                      ? "Pauses after each sentence until you press Spacebar or Next"
-                      : `Auto-pauses dynamically (${echoMultiplier}x sentence length) for repeating out loud`,
-                },
                 { id: "blind", label: "Blind (Ear Training)", icon: <EyeOff size={12} />, title: "Blurs subtitles to train your listening comprehension first" },
               ].map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => setShadowingMode(m.id as "normal" | "echo" | "blind")}
+                  onClick={() => setShadowingMode(m.id as "normal" | "blind")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                     shadowingMode === m.id
                       ? "bg-[#853BCE] text-white shadow-md shadow-[#853BCE]/25"
@@ -846,42 +668,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </button>
               ))}
             </div>
-
-            {/* Echo Pause Ratio / Manual Selector (Method 1: Adaptive Duration + Method 3: Manual Spacebar Hold) */}
-            {shadowingMode === "echo" && (
-              <div className="flex items-center gap-1 text-[11px] font-mono text-[#A1A0AB] bg-[#13111C] px-2 py-1 rounded-lg border border-[#33323E]">
-                <span className="text-[10px] text-[#6C6B7B]">Pause:</span>
-                {[
-                  { id: 1.0, label: "1.0x", title: "Wait 1.0x of sentence duration (Fast)" },
-                  { id: 1.2, label: "1.2x (Auto)", title: "Wait 1.2x of sentence duration (Natural speech rhythm - Recommended)" },
-                  { id: 1.5, label: "1.5x", title: "Wait 1.5x of sentence duration (Relaxed)" },
-                  { id: "manual", label: "Manual (Space)", title: "Pause until you press Spacebar or Next (No time limit)" },
-                ].map((preset) => (
-                  <button
-                    key={String(preset.id)}
-                    onClick={() => {
-                      const val = preset.id as number | "manual";
-                      setEchoMultiplier(val);
-                      echoMultiplierRef.current = val;
-                      try {
-                        localStorage.setItem("shadowing_echo_multiplier", String(val));
-                      } catch {}
-                      if (isEchoPausingRef.current) {
-                        startEchoCountdown();
-                      }
-                    }}
-                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
-                      echoMultiplier === preset.id
-                        ? "bg-[#853BCE] text-white font-bold shadow"
-                        : "hover:text-white"
-                    }`}
-                    title={preset.title}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -1011,61 +797,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </button>
               </div>
             </div>
-
-            {/* Echo Practice Status Banner & Animated Progress Bar (Method 1 + Method 3) */}
-            {echoCountdown !== null && (
-              <div className="mb-4 p-3 rounded-xl bg-[#853BCE]/15 border border-[#853BCE]/40 shadow-inner animate-in fade-in">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#A667E4] animate-ping" />
-                    <Mic size={14} className="text-[#A667E4]" />
-                    <span className="text-xs font-mono font-semibold text-white tracking-wide">
-                      {echoCountdown === -1 ? "Echo Hold: Repeat at your own pace" : "Your Turn to Repeat!"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {echoCountdown !== -1 && (
-                      <span className="text-xs font-mono font-bold text-[#A667E4] bg-[#13111C] px-2 py-0.5 rounded border border-[#853BCE]/30">
-                        {echoCountdown.toFixed(1)}s
-                      </span>
-                    )}
-                    <button
-                      onClick={skipEchoCountdown}
-                      className="px-2.5 py-1 rounded-lg bg-[#853BCE] hover:bg-[#9745e6] text-white text-[11px] font-mono font-medium transition-all shadow flex items-center gap-1 cursor-pointer"
-                      title="Continue to next sentence (Space or Enter)"
-                    >
-                      <span>Continue</span>
-                      <SkipForward size={11} />
-                    </button>
-                    <button
-                      onClick={() => startEchoCountdown()}
-                      className="px-2 py-1 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#DCDCE0] hover:text-white text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer"
-                      title="Restart timer for this sentence"
-                    >
-                      <RotateCcw size={11} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sleek Progress Bar (Method 1: Drains smoothly over the exact calculated pause duration) */}
-                {echoCountdown !== -1 && echoTotalPauseSec > 0 && (
-                  <div className="w-full h-1.5 bg-[#13111C] rounded-full overflow-hidden border border-[#853BCE]/30">
-                    <div
-                      className="h-full bg-gradient-to-r from-[#853BCE] to-[#A667E4] rounded-full transition-all duration-100 ease-linear shadow-sm shadow-[#853BCE]"
-                      style={{
-                        width: `${Math.max(0, Math.min(100, (echoCountdown / echoTotalPauseSec) * 100))}%`,
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between mt-1.5 text-[10px] font-mono text-[#A1A0AB]">
-                  <span>💡 Tip: Press <kbd className="text-[#A667E4] bg-[#13111C] px-1 rounded">Space</kbd> anytime to proceed</span>
-                  <span><kbd className="text-[#A667E4] bg-[#13111C] px-1 rounded">R</kbd> to replay audio</span>
-                </div>
-              </div>
-            )}
 
             {/* Large Typography Sentence (with Blind Mode blur support) */}
             <div
