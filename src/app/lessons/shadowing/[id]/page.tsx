@@ -46,13 +46,8 @@ import {
   Play,
   Pause,
   PauseCircle,
-  Minimize2,
-  Maximize2,
-  Square,
   Clock,
 } from "lucide-react";
-
-type VideoSize = "compact" | "normal" | "wide";
 
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -94,9 +89,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
-
-  // Dynamic Video Frame Sizing: "compact" (460px) | "normal" (620px) | "wide" (100%)
-  const [videoSize, setVideoSize] = useState<VideoSize>("normal");
 
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
@@ -158,11 +150,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       const savedBookmarks = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
       setIsBookmarked(savedBookmarks.some((l: { id: string }) => l.id === id));
 
-      const savedSize = localStorage.getItem("shadowing_video_size") as VideoSize | null;
-      if (savedSize === "compact" || savedSize === "normal" || savedSize === "wide") {
-        setVideoSize(savedSize);
-      }
-
       const savedStepMode = localStorage.getItem("shadowing_step_pause_mode");
       if (savedStepMode !== null) {
         const parsed = JSON.parse(savedStepMode);
@@ -189,14 +176,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       console.warn("Storage read error:", e);
     }
   }, [id]);
-
-  // Change video size and persist preference
-  const handleSetVideoSize = (size: VideoSize) => {
-    setVideoSize(size);
-    try {
-      localStorage.setItem("shadowing_video_size", size);
-    } catch {}
-  };
 
   // Toggle Step Mode (Auto-pause at sentence end)
   const toggleAutoPause = useCallback(() => {
@@ -836,16 +815,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const displayIndex = activeIndex !== -1 ? activeIndex : (focusedIndex < transcript.length ? focusedIndex : 0);
   const currentSentence = transcript[displayIndex] || transcript[0];
 
-  // Dynamic max-width class based on user size selection
-  const videoMaxWidthClass =
-    videoSize === "compact"
-      ? "max-w-[460px]"
-      : videoSize === "wide"
-      ? "max-w-full"
-      : "max-w-[620px]";
-
   return (
-    <div className="bg-[#2E2E2E] min-h-screen text-[#E9E1D4]">
+    <div className="bg-[#2E2E2E] min-h-screen text-[#E9E1D4] overflow-x-hidden">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6 p-2.5 sm:p-6">
         {/* Keyboard Shortcuts Modal */}
         <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
@@ -1000,16 +971,14 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
 
-          {/* Dynamic Resizable Video Player Container */}
+          {/* Video Player Container */}
           <div className="space-y-2">
-            <div
-              className={`relative w-full ${videoMaxWidthClass} mx-auto aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black shadow-lg transition-all duration-300`}
-            >
+            <div className="relative w-full aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black shadow-lg">
               <div ref={videoRef} data-vjs-player />
             </div>
 
-            {/* Video Player Compact Controller Bar (Fully Responsive) */}
-            <div className={`w-full ${videoMaxWidthClass} mx-auto bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-2 sm:px-3 sm:py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm transition-all duration-300`}>
+            {/* Video Player Compact Controller Bar (Fully Responsive, Zero-Overflow) */}
+            <div className="w-full bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-2 sm:px-3 sm:py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
               {/* Row 1 on mobile, Left group on desktop: Primary Playback */}
               <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2 w-full sm:w-auto">
                 {/* Prev Line */}
@@ -1020,7 +989,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   title="Previous Line (←)"
                 >
                   <SkipBack size={13} />
-                  <span className="hidden sm:inline">Prev</span>
+                  <span>Prev</span>
                 </button>
 
                 {/* Play / Pause Toggle */}
@@ -1081,12 +1050,10 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   </span>
                   <SkipForward size={13} />
                 </button>
-
-                <div className="h-4 w-[1px] bg-[#3A3A3A] mx-0.5 hidden sm:block" />
               </div>
 
               {/* Row 2 on mobile, Right group on desktop: Mode Toggles & Controls */}
-              <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-[#3A3A3A]/40">
+              <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-[#3A3A3A]/40">
                 {/* Step Mode Toggle */}
                 <button
                   onClick={toggleAutoPause}
@@ -1144,32 +1111,6 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                   {isBlindMode ? <EyeOff size={11} className="text-[#8C2727]" /> : <Eye size={11} />}
                   <span>Blind</span>
                 </button>
-
-                <div className="h-4 w-[1px] bg-[#3A3A3A] mx-0.5 hidden md:block" />
-
-                {/* Video Size Controller (Desktop only) */}
-                <div className="hidden md:inline-flex border border-[#3A3A3A] bg-[#2E2E2E] rounded-sm p-0.5">
-                  {[
-                    { id: "compact", label: "Compact", icon: <Minimize2 size={11} />, desc: "Narrow" },
-                    { id: "normal", label: "Normal", icon: <Square size={11} />, desc: "Standard" },
-                    { id: "wide", label: "Wide", icon: <Maximize2 size={11} />, desc: "Full width" },
-                  ].map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => handleSetVideoSize(s.id as VideoSize)}
-                      title={s.desc}
-                      className={`px-1.5 py-0.5 text-[10px] font-mono flex items-center gap-1 rounded-xs transition-colors cursor-pointer ${
-                        videoSize === s.id
-                          ? "bg-[#B5A642] text-[#1F132A] font-bold"
-                          : "text-[#E9E1D4]/60 hover:text-[#E9E1D4]"
-                      }`}
-                    >
-                      {s.icon}
-                      <span className="hidden lg:inline">{s.label}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
