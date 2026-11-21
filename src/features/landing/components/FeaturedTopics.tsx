@@ -1,43 +1,52 @@
 import React from "react";
 import Link from "next/link";
-import { Film, MessageSquare, Briefcase, GraduationCap, ArrowRight, Play } from "lucide-react";
+import { Film, MessageSquare, Briefcase, GraduationCap, ArrowRight, Play, Sparkles, Lightbulb } from "lucide-react";
 
 const categories = [
   {
-    title: "Movie Short Clips",
-    subtitle: "Conversational Idioms & Pop Culture",
-    icon: <Film size={22} className="text-[#82AAFF]" />,
+    title: "IELTS & 6-Minute English",
+    subtitle: "Academic Band 8+ & BBC Fluency",
+    icon: <GraduationCap size={22} className="text-[#42946E]" />,
     lessons: "100+ Lessons",
-    slug: "shortMovies",
-    badge: "Popular",
-    description: "Learn natural slang, emotion, and everyday cultural idioms from popular films.",
+    slug: "ielts",
+    badge: "Top Choice",
+    description: "BBC 6-Minute topics, academic discourse, and fluent monologue drills under 7 minutes.",
   },
   {
-    title: "Daily English",
+    title: "TED Talks & Inspiring Ideas",
+    subtitle: "Persuasive Public Speaking",
+    icon: <Lightbulb size={22} className="text-amber-400" />,
+    lessons: "80+ Lessons",
+    slug: "tedTalks",
+    badge: "Inspiring",
+    description: "High-impact storytelling, crisp cadence, and thought-provoking 3-5 minute talks.",
+  },
+  {
+    title: "Daily English Conversation",
     subtitle: "Real-Life Social Situations",
     icon: <MessageSquare size={22} className="text-[#A667E4]" />,
     lessons: "120+ Lessons",
     slug: "dailyEnglish",
     badge: "Essential",
-    description: "Master cafe orders, small talk, travel scenarios, and casual friend conversations.",
+    description: "Master cafe orders, discounts, travel scenarios, and casual friend conversations in 2-3 mins.",
   },
   {
-    title: "Business English",
-    subtitle: "Meetings, Negotiations & Pitches",
-    icon: <Briefcase size={22} className="text-amber-400" />,
-    lessons: "80+ Lessons",
+    title: "Movie Short Clips",
+    subtitle: "Conversational Idioms & Pop Culture",
+    icon: <Film size={22} className="text-[#82AAFF]" />,
+    lessons: "90+ Lessons",
+    slug: "shortMovies",
+    badge: "Popular",
+    description: "Learn natural slang, emotion, and everyday cultural idioms from famous movie scenes.",
+  },
+  {
+    title: "Business & Job Interviews",
+    subtitle: "Interviews, Meetings & Pitches",
+    icon: <Briefcase size={22} className="text-[#B5A642]" />,
+    lessons: "85+ Lessons",
     slug: "business",
     badge: "Career",
-    description: "Professional vocabulary, formal email phrasing, and executive presentation cadence.",
-  },
-  {
-    title: "IELTS Listening & Speaking",
-    subtitle: "Academic Band 8+ Training",
-    icon: <GraduationCap size={22} className="text-[#42946E]" />,
-    lessons: "90+ Lessons",
-    slug: "ielts",
-    badge: "Exam Prep",
-    description: "Complex sentence structures, academic discourse, and fluent monologue drills.",
+    description: "Professional job interview answers, meeting phrasing, and executive presentation cadence.",
   },
 ];
 

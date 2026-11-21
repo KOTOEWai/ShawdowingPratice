@@ -10,24 +10,35 @@ import TopicGrid from "./TopicGrid";
 
 const CATEGORIES = [
   { id: "all", label: "All Topics" },
-  { id: "movie", label: "Movie Short Clips" },
-  { id: "daily", label: "Daily English" },
-  { id: "business", label: "Business English" },
   { id: "ielts", label: "IELTS & 6-Min English" },
+  { id: "ted", label: "TED Talks & Inspiration" },
+  { id: "daily", label: "Daily English" },
+  { id: "movie", label: "Movie Short Clips" },
+  { id: "business", label: "Business English" },
+  { id: "qa", label: "Everyday Q&A (3-Min)" },
 ];
 
-export default function TopicPage({ movieVideos, dailyVideos, business, ielts }: TopicPageProps) {
+export default function TopicPage({
+  ielts,
+  tedVideos = [],
+  dailyVideos,
+  movieVideos,
+  business,
+  everydayQa = [],
+}: TopicPageProps) {
   const [activeFilter, setActiveFilter] = useState("all");
   const [customOpen, setCustomOpen] = useState(false);
 
   const sections = useMemo(
     () => [
-      { id: "movie", title: "Movie Short Clips", link: "/Topics/shortMovies", data: movieVideos },
-      { id: "daily", title: "Daily English Conversation", link: "/Topics/dailyEnglish", data: dailyVideos },
-      { id: "business", title: "Business English", link: "/Topics/business", data: business },
       { id: "ielts", title: "IELTS & 6-Minute English", link: "/Topics/ielts", data: ielts },
+      { id: "ted", title: "TED Talks & Inspiring Ideas", link: "/Topics/tedTalks", data: tedVideos },
+      { id: "daily", title: "Daily English Conversation", link: "/Topics/dailyEnglish", data: dailyVideos },
+      { id: "movie", title: "Movie Short Clips", link: "/Topics/shortMovies", data: movieVideos },
+      { id: "business", title: "Business English & Job Interview", link: "/Topics/business", data: business },
+      { id: "qa", title: "Everyday English Q&A (3-Min Drill)", link: "/Topics/everydayQa", data: everydayQa },
     ],
-    [movieVideos, dailyVideos, business, ielts]
+    [ielts, tedVideos, dailyVideos, movieVideos, business, everydayQa]
   );
 
   const filteredSections =

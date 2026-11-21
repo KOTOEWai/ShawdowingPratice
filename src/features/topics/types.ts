@@ -9,10 +9,12 @@ export interface VideoItem {
 }
 
 export interface TopicPageProps {
-  movieVideos: VideoItem[];
-  dailyVideos: VideoItem[];
-  business: VideoItem[];
   ielts: VideoItem[];
+  tedVideos?: VideoItem[];
+  dailyVideos: VideoItem[];
+  movieVideos: VideoItem[];
+  business: VideoItem[];
+  everydayQa?: VideoItem[];
 }
 
 export interface VideoRowProps {
