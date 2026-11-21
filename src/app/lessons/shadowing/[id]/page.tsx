@@ -76,10 +76,13 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   // Advanced Learning Modes: 'normal' | 'echo' | 'blind'
   const [shadowingMode, setShadowingMode] = useState<"normal" | "echo" | "blind">("normal");
+  // Echo Mode: Dynamic Adaptive Ratio (1.0x, 1.2x, 1.5x) or "manual" (Wait for Spacebar / Tap)
+  const [echoMultiplier, setEchoMultiplier] = useState<number | "manual">(1.2);
+  const echoMultiplierRef = useRef<number | "manual">(1.2);
+  echoMultiplierRef.current = echoMultiplier;
+
   const [echoCountdown, setEchoCountdown] = useState<number | null>(null);
-  const [echoDuration, setEchoDuration] = useState<number>(10); // Default to 10 seconds auto-pause
-  const echoDurationRef = useRef<number>(10);
-  echoDurationRef.current = echoDuration;
+  const [echoTotalPauseSec, setEchoTotalPauseSec] = useState<number>(3);
   const echoIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [peekBlind, setPeekBlind] = useState<boolean>(false);
@@ -140,6 +143,21 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       const savedLessons = JSON.parse(localStorage.getItem("saved_study_lessons") || "[]");
       setIsBookmarked(savedLessons.some((l: { id: string }) => l.id === id));
 
+      // Restore Echo Multiplier preference (Method 1 + 3)
+      const savedMult = localStorage.getItem("shadowing_echo_multiplier");
+      if (savedMult) {
+        if (savedMult === "manual") {
+          setEchoMultiplier("manual");
+          echoMultiplierRef.current = "manual";
+        } else {
+          const num = parseFloat(savedMult);
+          if (!isNaN(num)) {
+            setEchoMultiplier(num);
+            echoMultiplierRef.current = num;
+          }
+        }
+      }
+
       // Check if already completed
       const completedList = JSON.parse(localStorage.getItem("completed_shadowing_lessons") || "[]");
       const alreadyDone = completedList.some((l: { id: string }) => l.id === id);
@@ -196,24 +214,47 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
     }
   }, []);
 
-  // Start or Restart Echo Countdown from the beginning (5s, 10s, 15s)
-  const startEchoCountdown = useCallback((durationSec?: number) => {
+  // Start or Restart Echo Countdown (Method 1: Dynamic Adaptive Duration, Method 3: Manual Spacebar Hold)
+  const startEchoCountdown = useCallback((customSec?: number) => {
     if (echoIntervalRef.current) {
       clearInterval(echoIntervalRef.current);
       echoIntervalRef.current = null;
     }
-    const sec = durationSec || echoDurationRef.current || 10;
+
+    const curIdx = activeIndexRef.current;
+    const currentItem =
+      curIdx >= 0 && curIdx < transcriptRef.current.length ? transcriptRef.current[curIdx] : null;
+
+    let sec: number;
+    if (typeof customSec === "number") {
+      sec = customSec;
+    } else if (echoMultiplierRef.current === "manual") {
+      sec = -1; // -1 indicates manual hold until user taps Space or Next
+    } else {
+      const durSec = (currentItem?.duration && currentItem.duration > 0 ? currentItem.duration : 2500) / 1000;
+      const mult = typeof echoMultiplierRef.current === "number" ? echoMultiplierRef.current : 1.2;
+      sec = Math.max(1.8, Math.round(durSec * mult * 10) / 10);
+    }
+
     isEchoPausingRef.current = true;
     if (playerRef.current && !playerRef.current.paused()) {
       playerRef.current.pause();
     }
+
+    if (sec === -1) {
+      setEchoTotalPauseSec(-1);
+      setEchoCountdown(-1);
+      return;
+    }
+
+    setEchoTotalPauseSec(sec);
     setEchoCountdown(sec);
 
-    let count = sec;
+    let remaining = sec;
     echoIntervalRef.current = setInterval(() => {
-      count -= 1;
-      if (count > 0) {
-        setEchoCountdown(count);
+      remaining = Math.round((remaining - 0.1) * 10) / 10;
+      if (remaining > 0) {
+        setEchoCountdown(remaining);
       } else {
         if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
         echoIntervalRef.current = null;
@@ -226,7 +267,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           playerRef.current.play();
         }
       }
-    }, 1000);
+    }, 100);
   }, [handleSeek]);
 
   // Skip / Continue Echo Countdown early
@@ -749,61 +790,22 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <div className="relative aspect-video rounded-xl overflow-hidden border border-[#33323E] bg-black shadow-2xl">
           <div ref={videoRef} data-vjs-player />
 
-          {/* Echo Countdown Overlay */}
+          {/* Subtle Floating Echo Indicator over bottom edge of video (Zero video obstruction) */}
           {echoCountdown !== null && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center text-center p-6 animate-in fade-in">
-              <div className="w-16 h-16 rounded-2xl bg-[#853BCE]/30 border-2 border-[#853BCE] flex items-center justify-center text-3xl font-extrabold text-white mb-2 shadow-xl shadow-[#853BCE]/40 animate-pulse font-mono">
-                {echoCountdown}s
-              </div>
-              <h3 className="text-lg font-semibold text-white tracking-tight flex items-center gap-2">
-                <Mic size={18} className="text-[#A667E4]" />
-                Echo Repeat Out Loud!
-              </h3>
-              <p className="text-xs text-[#A1A0AB] mt-1 max-w-sm mb-3">
-                Repeat this sentence out loud. Auto-advances when timer ends.
-              </p>
-
-              {/* Active Sentence Quote Display */}
-              {currentSentence?.text && (
-                <div className="bg-[#13111C]/90 border border-[#853BCE]/40 rounded-xl px-4 py-2.5 max-w-lg mb-4 shadow-lg">
-                  <p className="text-sm sm:text-base text-white font-medium italic">
-                    &ldquo;{currentSentence.text}&rdquo;
-                  </p>
-                </div>
-              )}
-
-              {/* Action buttons during countdown */}
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button
-                  onClick={skipEchoCountdown}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#853BCE] hover:bg-[#9745e6] text-white text-xs font-mono font-medium transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                  title="Finish speaking and proceed to next sentence immediately (Space/Enter/→)"
-                >
-                  <SkipForward size={13} />
-                  <span>Continue Now</span>
-                </button>
-                <button
-                  onClick={() => startEchoCountdown()}
-                  className="px-3 py-1.5 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#DCDCE0] hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
-                  title={`Restart ${echoDuration}s countdown from the beginning`}
-                >
-                  <RotateCcw size={13} />
-                  <span>Restart ({echoDuration}s)</span>
-                </button>
-                <button
-                  onClick={() => {
-                    if (echoIntervalRef.current) clearInterval(echoIntervalRef.current);
-                    isEchoPausingRef.current = false;
-                    setEchoCountdown(null);
-                    handleReplayCurrent();
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#A1A0AB] hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Replay this sentence audio (R)"
-                >
-                  <Volume2 size={13} />
-                  <span>Replay Audio</span>
-                </button>
-              </div>
+            <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2 bg-[#13111C]/90 backdrop-blur-md border border-[#853BCE]/50 px-3 py-1.5 rounded-full shadow-2xl animate-in fade-in">
+              <span className="w-2 h-2 rounded-full bg-[#A667E4] animate-ping" />
+              <Mic size={13} className="text-[#A667E4]" />
+              <span className="text-xs font-mono font-medium text-white">
+                {echoCountdown === -1 ? "Echo: Repeat out loud" : `Echo ${echoCountdown.toFixed(1)}s`}
+              </span>
+              <button
+                onClick={skipEchoCountdown}
+                className="ml-1 px-2.5 py-0.5 rounded-full bg-[#853BCE] hover:bg-[#9745e6] text-[11px] font-mono text-white transition-all cursor-pointer flex items-center gap-1 shadow"
+                title="Continue to next line (Space or Enter)"
+              >
+                <span>Next</span>
+                <SkipForward size={11} />
+              </button>
             </div>
           )}
         </div>
@@ -818,7 +820,15 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             <div className="flex items-center gap-1.5">
               {[
                 { id: "normal", label: "Normal", icon: <Headphones size={12} />, title: "Standard continuous video practice" },
-                { id: "echo", label: "Echo (Auto-Pause)", icon: <Mic size={12} />, title: `Auto-pauses ${echoDuration}s after each sentence for repeating out loud` },
+                {
+                  id: "echo",
+                  label: "Echo (Auto-Pause)",
+                  icon: <Mic size={12} />,
+                  title:
+                    echoMultiplier === "manual"
+                      ? "Pauses after each sentence until you press Spacebar or Next"
+                      : `Auto-pauses dynamically (${echoMultiplier}x sentence length) for repeating out loud`,
+                },
                 { id: "blind", label: "Blind (Ear Training)", icon: <EyeOff size={12} />, title: "Blurs subtitles to train your listening comprehension first" },
               ].map((m) => (
                 <button
@@ -837,31 +847,37 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
               ))}
             </div>
 
-            {/* Echo Pause Duration Selector (5s, 10s, 15s) */}
+            {/* Echo Pause Ratio / Manual Selector (Method 1: Adaptive Duration + Method 3: Manual Spacebar Hold) */}
             {shadowingMode === "echo" && (
               <div className="flex items-center gap-1 text-[11px] font-mono text-[#A1A0AB] bg-[#13111C] px-2 py-1 rounded-lg border border-[#33323E]">
                 <span className="text-[10px] text-[#6C6B7B]">Pause:</span>
-                {[5, 10, 15].map((sec) => (
+                {[
+                  { id: 1.0, label: "1.0x", title: "Wait 1.0x of sentence duration (Fast)" },
+                  { id: 1.2, label: "1.2x (Auto)", title: "Wait 1.2x of sentence duration (Natural speech rhythm - Recommended)" },
+                  { id: 1.5, label: "1.5x", title: "Wait 1.5x of sentence duration (Relaxed)" },
+                  { id: "manual", label: "Manual (Space)", title: "Pause until you press Spacebar or Next (No time limit)" },
+                ].map((preset) => (
                   <button
-                    key={sec}
+                    key={String(preset.id)}
                     onClick={() => {
-                      setEchoDuration(sec);
-                      echoDurationRef.current = sec;
+                      const val = preset.id as number | "manual";
+                      setEchoMultiplier(val);
+                      echoMultiplierRef.current = val;
                       try {
-                        localStorage.setItem("shadowing_echo_duration", String(sec));
+                        localStorage.setItem("shadowing_echo_multiplier", String(val));
                       } catch {}
                       if (isEchoPausingRef.current) {
-                        startEchoCountdown(sec);
+                        startEchoCountdown();
                       }
                     }}
                     className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
-                      echoDuration === sec
+                      echoMultiplier === preset.id
                         ? "bg-[#853BCE] text-white font-bold shadow"
                         : "hover:text-white"
                     }`}
-                    title={`Set pause duration to ${sec} seconds`}
+                    title={preset.title}
                   >
-                    {sec}s
+                    {preset.label}
                   </button>
                 ))}
               </div>
@@ -995,6 +1011,61 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 </button>
               </div>
             </div>
+
+            {/* Echo Practice Status Banner & Animated Progress Bar (Method 1 + Method 3) */}
+            {echoCountdown !== null && (
+              <div className="mb-4 p-3 rounded-xl bg-[#853BCE]/15 border border-[#853BCE]/40 shadow-inner animate-in fade-in">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#A667E4] animate-ping" />
+                    <Mic size={14} className="text-[#A667E4]" />
+                    <span className="text-xs font-mono font-semibold text-white tracking-wide">
+                      {echoCountdown === -1 ? "Echo Hold: Repeat at your own pace" : "Your Turn to Repeat!"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {echoCountdown !== -1 && (
+                      <span className="text-xs font-mono font-bold text-[#A667E4] bg-[#13111C] px-2 py-0.5 rounded border border-[#853BCE]/30">
+                        {echoCountdown.toFixed(1)}s
+                      </span>
+                    )}
+                    <button
+                      onClick={skipEchoCountdown}
+                      className="px-2.5 py-1 rounded-lg bg-[#853BCE] hover:bg-[#9745e6] text-white text-[11px] font-mono font-medium transition-all shadow flex items-center gap-1 cursor-pointer"
+                      title="Continue to next sentence (Space or Enter)"
+                    >
+                      <span>Continue</span>
+                      <SkipForward size={11} />
+                    </button>
+                    <button
+                      onClick={() => startEchoCountdown()}
+                      className="px-2 py-1 rounded-lg bg-[#181622] border border-[#33323E] hover:border-[#853BCE]/50 text-[#DCDCE0] hover:text-white text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer"
+                      title="Restart timer for this sentence"
+                    >
+                      <RotateCcw size={11} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sleek Progress Bar (Method 1: Drains smoothly over the exact calculated pause duration) */}
+                {echoCountdown !== -1 && echoTotalPauseSec > 0 && (
+                  <div className="w-full h-1.5 bg-[#13111C] rounded-full overflow-hidden border border-[#853BCE]/30">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#853BCE] to-[#A667E4] rounded-full transition-all duration-100 ease-linear shadow-sm shadow-[#853BCE]"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, (echoCountdown / echoTotalPauseSec) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-1.5 text-[10px] font-mono text-[#A1A0AB]">
+                  <span>💡 Tip: Press <kbd className="text-[#A667E4] bg-[#13111C] px-1 rounded">Space</kbd> anytime to proceed</span>
+                  <span><kbd className="text-[#A667E4] bg-[#13111C] px-1 rounded">R</kbd> to replay audio</span>
+                </div>
+              </div>
+            )}
 
             {/* Large Typography Sentence (with Blind Mode blur support) */}
             <div
