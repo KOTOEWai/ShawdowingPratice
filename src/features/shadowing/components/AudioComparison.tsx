@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, Square, Play, RotateCcw, Volume2, CheckCircle2, TrendingUp, History, Sparkles } from "lucide-react";
+import { Mic, Square, Play, RotateCcw, Volume2 } from "lucide-react";
 
 interface AttemptMeta {
   beforeDate: string;
@@ -349,205 +349,156 @@ export default function AudioComparison({
   };
 
   const hasRecordings = Boolean(beforeAudioUrl || latestAudioUrl);
-  const hasMultipleAttempts = (attemptMeta?.totalAttempts || 0) >= 2;
 
   return (
-    <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-md p-3.5 mt-4 shadow-xl">
-      <div className="flex flex-col gap-3">
-        {/* Top Header / Status Line */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#3A3A3A]/60 pb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono uppercase font-bold text-[#B5A642] tracking-wider flex items-center gap-1.5">
-              <TrendingUp size={13} />
-              <span>Accent Comparison (Before vs After)</span>
+    <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3 mt-3 shadow-md space-y-2.5">
+      {/* Top Header: Title & Close */}
+      <div className="flex items-center justify-between pb-2 border-b border-[#3A3A3A]/50">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-bold text-[#B5A642] tracking-wider uppercase flex items-center gap-1.5">
+            <Mic size={13} />
+            <span>Voice Test</span>
+          </span>
+          {attemptMeta && attemptMeta.totalAttempts > 0 && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-xs bg-[#2E2E2E] text-[#7A7A7A]">
+              Attempt #{attemptMeta.totalAttempts}
             </span>
-
-            {attemptMeta && (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-xs bg-[#2E2E2E] border border-[#3A3A3A] text-[#E9E1D4]">
-                Attempt #{attemptMeta.totalAttempts}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Mastered toggle */}
-            {onMasteredToggle && (
-              <button
-                onClick={onMasteredToggle}
-                className={`px-2.5 py-1 rounded-sm border text-[11px] font-mono font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                  isMastered
-                    ? "bg-[#6B8E23]/20 text-[#6B8E23] border-[#6B8E23]"
-                    : "bg-[#2E2E2E] border-[#3A3A3A] text-[#7A7A7A] hover:text-[#E9E1D4]"
-                }`}
-                title="Mark sentence as mastered"
-              >
-                <CheckCircle2 size={12} />
-                <span>{isMastered ? "Mastered" : "Mark Mastered"}</span>
-              </button>
-            )}
-
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-2 py-1 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#8C2727] text-[#7A7A7A] hover:text-[#E9E1D4] text-[11px] font-mono transition-colors cursor-pointer flex items-center gap-1"
-                title="Close voice comparison"
-              >
-                ✕ Close
-              </button>
-            )}
-          </div>
+          )}
         </div>
 
-        {/* Middle Bar: Recording Status or A/B Players */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Left: Waveform or Instruction */}
-          <div className="flex items-center gap-3">
-            {isRecording ? (
-              <div className="flex items-center gap-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
-                <span className="text-xs font-mono text-red-400 font-bold tracking-wider">
-                  RECORDING {recordSeconds}s
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-2 py-0.5 rounded-xs text-[11px] font-mono text-[#7A7A7A] hover:text-[#E9E1D4] hover:bg-[#2E2E2E] transition-colors cursor-pointer"
+            title="Close Voice Test"
+          >
+            ✕ Close
+          </button>
+        )}
+      </div>
+
+      {/* Main Controls Row: Status/Score on left, Buttons on right */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Left: Waveform (when recording) or Pronunciation Score */}
+        {isRecording ? (
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+            <span className="text-xs font-mono text-red-400 font-bold">
+              Recording {recordSeconds}s
+            </span>
+            <canvas
+              ref={canvasRef}
+              width={100}
+              height={20}
+              className="bg-[#2E2E2E] rounded-xs border border-[#3A3A3A]"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs font-mono text-[#7A7A7A]">
+            {speechScore !== null ? (
+              <span className="flex items-center gap-1.5">
+                <span>Accuracy:</span>
+                <span
+                  className={`font-bold px-1.5 py-0.5 rounded-xs text-[11px] ${
+                    speechScore >= 75
+                      ? "text-[#42946E] bg-[#26543F]/40 border border-[#367859]"
+                      : speechScore >= 50
+                      ? "text-[#B5A642] bg-[#B5A642]/15 border border-[#B5A642]/40"
+                      : "text-[#E98C8C] bg-[#8C2727]/20 border border-[#8C2727]/40"
+                  }`}
+                >
+                  {speechScore}%
                 </span>
-                <canvas
-                  ref={canvasRef}
-                  width={140}
-                  height={24}
-                  className="bg-[#2E2E2E] rounded-xs border border-[#3A3A3A]"
-                />
-              </div>
-            ) : hasRecordings ? (
-              <div className="text-xs font-mono text-[#E9E1D4] flex items-center gap-2">
-                <History size={13} className="text-[#B5A642]" />
-                <span className="text-[#7A7A7A]">Compare your accent:</span>
-              </div>
+                {recognizedText && (
+                  <span className="text-[11px] text-[#7A7A7A] hidden sm:inline truncate max-w-[200px]" title={`Heard: "${recognizedText}"`}>
+                    (&quot;{recognizedText}&quot;)
+                  </span>
+                )}
+              </span>
             ) : (
-              <span className="text-xs font-mono text-[#7A7A7A]">
-                Record your voice to establish your baseline accent attempt:
-              </span>
+              <span className="text-[11px] text-[#7A7A7A]">Record to compare with Native:</span>
             )}
           </div>
+        )}
 
-          {/* Right: Action Buttons */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-            {/* Record / Stop Button */}
+        {/* Right: Audio Playback & Record Buttons */}
+        <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+          {/* Record / Stop Button */}
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`px-3 py-1.5 rounded-sm text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              isRecording
+                ? "bg-red-700 hover:bg-red-600 text-white animate-pulse"
+                : "bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A]"
+            }`}
+          >
+            {isRecording ? (
+              <>
+                <Square size={12} className="fill-white" />
+                <span>Stop</span>
+              </>
+            ) : (
+              <>
+                <Mic size={12} />
+                <span>{hasRecordings ? "Record Again" : "Record"}</span>
+              </>
+            )}
+          </button>
+
+          {/* Native Dialogue Button */}
+          <button
+            onClick={onPlayNative}
+            className="px-2.5 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-xs font-mono text-[#E9E1D4] transition-all flex items-center gap-1 cursor-pointer"
+            title="Listen to original native speaker"
+          >
+            <Volume2 size={12} className="text-[#B5A642]" />
+            <span>Native</span>
+          </button>
+
+          {/* Baseline (Before) */}
+          {beforeAudioUrl && (
             <button
-              onClick={isRecording ? stopRecording : startRecording}
-              className={`flex-1 sm:flex-initial justify-center px-3 sm:px-3.5 py-1.5 rounded-sm text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                isRecording
-                  ? "bg-red-700 hover:bg-red-600 text-white animate-pulse"
-                  : "bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A]"
+              onClick={() => playAudio("before")}
+              className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1 cursor-pointer ${
+                activePlaying === "before"
+                  ? "bg-[#B5A642] text-[#1F132A] font-bold border-[#B5A642]"
+                  : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
               }`}
+              title="Play your first baseline attempt"
             >
-              {isRecording ? (
-                <>
-                  <Square size={12} className="fill-white" />
-                  <span>Stop</span>
-                </>
-              ) : (
-                <>
-                  <Mic size={12} />
-                  <span>{hasRecordings ? "Record New" : "Record First Try"}</span>
-                </>
-              )}
+              <Play size={11} className={activePlaying === "before" ? "fill-[#1F132A]" : "text-[#B5A642]"} />
+              <span>1st Try</span>
             </button>
+          )}
 
-            {/* Hear Native Speaker */}
+          {/* Latest (After) */}
+          {latestAudioUrl && (
             <button
-              onClick={onPlayNative}
-              className="flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-xs font-mono text-[#E9E1D4] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Hear Native Dialogue from Movie"
+              onClick={() => playAudio("latest")}
+              className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1 cursor-pointer ${
+                activePlaying === "latest"
+                  ? "bg-[#42946E] text-[#1F132A] font-bold border-[#42946E]"
+                  : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#42946E] text-[#E9E1D4]"
+              }`}
+              title="Play your latest attempt"
             >
-              <Volume2 size={13} className="text-[#B5A642]" />
-              <span>Native</span>
+              <Play size={11} className={activePlaying === "latest" ? "fill-[#1F132A]" : "text-[#42946E]"} />
+              <span>Latest</span>
             </button>
+          )}
 
-            {/* Play Baseline / First Try (Before) */}
-            {beforeAudioUrl && (
-              <button
-                onClick={() => playAudio("before")}
-                className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activePlaying === "before"
-                    ? "bg-[#B5A642] text-[#1F132A] font-bold border-[#B5A642]"
-                    : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
-                }`}
-                title={`Recorded ${attemptMeta?.beforeDate ? new Date(attemptMeta.beforeDate).toLocaleDateString() : "Baseline"}`}
-              >
-                <Play size={12} className={activePlaying === "before" ? "fill-[#1F132A]" : "text-[#B5A642]"} />
-                <span>Before (1st)</span>
-              </button>
-            )}
-
-            {/* Play Latest Try (After) */}
-            {latestAudioUrl && (
-              <button
-                onClick={() => playAudio("latest")}
-                className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activePlaying === "latest"
-                    ? "bg-[#6B8E23] text-white font-bold border-[#6B8E23]"
-                    : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#6B8E23] text-[#E9E1D4]"
-                }`}
-                title={`Latest attempt (${attemptMeta?.latestDate ? new Date(attemptMeta.latestDate).toLocaleTimeString() : "Now"})`}
-              >
-                <Play size={12} className={activePlaying === "latest" ? "fill-white" : "text-[#6B8E23]"} />
-                <span>After (Latest)</span>
-              </button>
-            )}
-
-            {/* Reset All Recordings for this line */}
-            {hasRecordings && (
-              <button
-                onClick={resetRecordings}
-                className="p-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:text-red-400 text-[#7A7A7A] transition-colors cursor-pointer"
-                title="Reset recordings for this sentence"
-              >
-                <RotateCcw size={12} />
-              </button>
-            )}
-          </div>
+          {/* Reset recordings */}
+          {hasRecordings && (
+            <button
+              onClick={resetRecordings}
+              className="p-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:text-red-400 text-[#7A7A7A] transition-colors cursor-pointer"
+              title="Reset recordings for this line"
+            >
+              <RotateCcw size={12} />
+            </button>
+          )}
         </div>
-
-        {/* Real-time Pronunciation Match Score & Heard Feedback */}
-        {speechScore !== null && (
-          <div className="bg-[#2E2E2E] border border-[#3A3A3A] p-2.5 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
-            <div className="flex items-center gap-2">
-              <span className="text-[#E9E1D4]/80">Pronunciation Match:</span>
-              <span
-                className={`font-bold px-2 py-0.5 rounded-xs text-[11px] ${
-                  speechScore >= 80
-                    ? "bg-[#26543F] text-[#42946E] border border-[#367859]"
-                    : speechScore >= 60
-                    ? "bg-[#B5A642]/20 text-[#B5A642] border border-[#B5A642]/40"
-                    : "bg-[#8C2727]/20 text-[#E98C8C] border border-[#8C2727]/40"
-                }`}
-              >
-                {speechScore}% Accuracy
-              </span>
-              <span className="text-[11px] text-[#7A7A7A] hidden md:inline">
-                {speechScore >= 85
-                  ? "🔥 Excellent Rhythm & Connected Speech!"
-                  : speechScore >= 65
-                  ? "👍 Good rhythm, try one more time!"
-                  : "🎧 Listen to Native and shadow aloud!"}
-              </span>
-            </div>
-            {recognizedText && (
-              <span className="text-[11px] text-[#7A7A7A] truncate max-w-xs" title={`Speech Heard: "${recognizedText}"`}>
-                Heard: &quot;{recognizedText}&quot;
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Motivational Accent Progression Notice */}
-        {hasMultipleAttempts && (
-          <div className="bg-[#2E2E2E] border-l-2 border-[#B5A642] p-2 text-[11px] font-mono text-[#E9E1D4] flex items-center gap-2">
-            <Sparkles size={12} className="text-[#B5A642] shrink-0" />
-            <span>
-              Great persistence! You have recorded <strong>{attemptMeta?.totalAttempts} attempts</strong>. Listen back and forth between <strong>Before (1st)</strong> and <strong>After (Latest)</strong> to verify your connected speech and rhythm!
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );
