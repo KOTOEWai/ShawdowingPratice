@@ -1,7 +1,95 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { Mic, Square, Play, RotateCcw, Volume2 } from "lucide-react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { Mic, Square, Play, RotateCcw, Volume2, Download } from "lucide-react";
+import { downloadAudioDataUrl } from "../utils/audioExport";
+
+interface WordScoreItem {
+  word: string;
+  isMatch: boolean;
+}
+
+function wordsMatch(target: string, spoken: string): boolean {
+  if (target === spoken) return true;
+  const tPlain = target.replace(/'/g, "");
+  const sPlain = spoken.replace(/'/g, "");
+  if (tPlain === sPlain) return true;
+
+  const variants: Record<string, string[]> = {
+    gonna: ["going", "to"],
+    wanna: ["want", "to"],
+    ok: ["okay"],
+    okay: ["ok"],
+    yeah: ["yes"],
+    yes: ["yeah"],
+    cant: ["cannot", "can"],
+    cannot: ["cant", "can't"],
+  };
+
+  if (variants[tPlain]?.includes(sPlain)) return true;
+
+  if (tPlain.length >= 5 && Math.abs(tPlain.length - sPlain.length) <= 1) {
+    let diff = 0;
+    for (let i = 0, j = 0; i < tPlain.length && j < sPlain.length; i++, j++) {
+      if (tPlain[i] !== sPlain[j]) {
+        diff++;
+        if (tPlain.length > sPlain.length) j--;
+        else if (tPlain.length < sPlain.length) i--;
+      }
+    }
+    if (diff <= 1) return true;
+  }
+
+  return false;
+}
+
+function computeWordComparison(original: string, spoken: string | null): WordScoreItem[] {
+  if (!spoken) return [];
+
+  const normalize = (w: string) =>
+    w.toLowerCase().replace(/[^a-z0-9']/g, "").replace(/^'+|'+$/g, "");
+
+  const cleanSpoken = spoken
+    .toLowerCase()
+    .replace(/[^a-z0-9'\s]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const origTokens = original.trim().split(/\s+/).filter(Boolean);
+  const availableSpoken = [...cleanSpoken];
+
+  const results: WordScoreItem[] = [];
+
+  for (const rawToken of origTokens) {
+    const norm = normalize(rawToken);
+    if (!norm) {
+      results.push({ word: rawToken, isMatch: true });
+      continue;
+    }
+
+    let matchIdx = -1;
+    const windowLen = Math.min(availableSpoken.length, 5);
+    for (let i = 0; i < windowLen; i++) {
+      if (wordsMatch(norm, availableSpoken[i])) {
+        matchIdx = i;
+        break;
+      }
+    }
+
+    if (matchIdx === -1) {
+      matchIdx = availableSpoken.findIndex((sw) => wordsMatch(norm, sw));
+    }
+
+    if (matchIdx !== -1) {
+      results.push({ word: rawToken, isMatch: true });
+      availableSpoken.splice(matchIdx, 1);
+    } else {
+      results.push({ word: rawToken, isMatch: false });
+    }
+  }
+
+  return results;
+}
 
 interface AttemptMeta {
   beforeDate: string;
@@ -375,7 +463,25 @@ export default function AudioComparison({
     }
   };
 
+  const handleDownloadAttempt = () => {
+    const audioUrl = latestAudioUrl || beforeAudioUrl;
+    if (!audioUrl) return;
+    const filename = `shadowing_${lessonId}_sentence_${sentenceIndex + 1}.webm`;
+    downloadAudioDataUrl(audioUrl, filename);
+  };
+
   const hasRecordings = Boolean(beforeAudioUrl || latestAudioUrl);
+
+  // Detailed Word-by-Word pronunciation comparison
+  const wordComparison = useMemo(() => {
+    return computeWordComparison(sentenceText, recognizedText);
+  }, [sentenceText, recognizedText]);
+
+  const matchedCount = useMemo(
+    () => wordComparison.filter((w) => w.isMatch).length,
+    [wordComparison]
+  );
+  const totalWords = wordComparison.length;
 
   return (
     <div className="bg-[#1F132A] border border-[#3A3A3A] rounded-sm p-3 mt-3 shadow-md space-y-2.5">
@@ -405,51 +511,74 @@ export default function AudioComparison({
         )}
       </div>
 
-      {/* Main Controls Row: Status/Score on left, Buttons on right */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Left: Waveform (when recording) or Pronunciation Score */}
-        {isRecording ? (
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-            <span className="text-xs font-mono text-red-400 font-bold">
-              Recording {recordSeconds}s
-            </span>
-            <canvas
-              ref={canvasRef}
-              width={100}
-              height={20}
-              className="bg-[#2E2E2E] rounded-xs border border-[#3A3A3A]"
-            />
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs font-mono text-[#7A7A7A]">
-            {speechScore !== null ? (
-              <span className="flex items-center gap-1.5">
-                <span>Accuracy:</span>
-                <span
-                  className={`font-bold px-1.5 py-0.5 rounded-xs text-[11px] ${
-                    speechScore >= 75
-                      ? "text-[#42946E] bg-[#26543F]/40 border border-[#367859]"
-                      : speechScore >= 50
-                      ? "text-[#B5A642] bg-[#B5A642]/15 border border-[#B5A642]/40"
-                      : "text-[#E98C8C] bg-[#8C2727]/20 border border-[#8C2727]/40"
-                  }`}
-                >
-                  {speechScore}%
-                </span>
+      {/* Controls Container: Responsive 2-tier layout on mobile, clean row on desktop */}
+      <div className="flex flex-col gap-2.5">
+        {/* Tier 1: Waveform / Accuracy on left, Quick Utilities on right */}
+        <div className="flex items-center justify-between gap-2 border-b border-[#3A3A3A]/40 pb-2 sm:border-b-0 sm:pb-0">
+          {/* Left: Waveform (when recording) or Pronunciation Score */}
+          {isRecording ? (
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              <span className="text-xs font-mono text-red-400 font-bold">
+                Recording {recordSeconds}s
               </span>
-            ) : (
-              <span className="text-[11px] text-[#7A7A7A]">Record to compare with Native:</span>
-            )}
-          </div>
-        )}
+              <canvas
+                ref={canvasRef}
+                width={90}
+                height={18}
+                className="bg-[#2E2E2E] rounded-xs border border-[#3A3A3A]"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs font-mono text-[#7A7A7A]">
+              {speechScore !== null ? (
+                <span className="flex items-center gap-1.5">
+                  <span>Accuracy:</span>
+                  <span
+                    className={`font-bold px-1.5 py-0.5 rounded-xs text-[11px] ${
+                      speechScore >= 75
+                        ? "text-[#42946E] bg-[#26543F]/40 border border-[#367859]"
+                        : speechScore >= 50
+                        ? "text-[#B5A642] bg-[#B5A642]/15 border border-[#B5A642]/40"
+                        : "text-[#E98C8C] bg-[#8C2727]/20 border border-[#8C2727]/40"
+                    }`}
+                  >
+                    {speechScore}%
+                  </span>
+                </span>
+              ) : (
+                <span className="text-[11px] text-[#7A7A7A]">Record to compare with Native:</span>
+              )}
+            </div>
+          )}
 
-        {/* Right: Audio Playback & Record Buttons */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+          {/* Quick Action Utilities (Download & Reset) on Mobile */}
+          {hasRecordings && (
+            <div className="flex sm:hidden items-center gap-1.5">
+              <button
+                onClick={handleDownloadAttempt}
+                className="p-1.5 rounded-xs bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]/80 hover:text-[#B5A642] transition-colors cursor-pointer"
+                title="Download this sentence recording"
+              >
+                <Download size={13} />
+              </button>
+              <button
+                onClick={resetRecordings}
+                className="p-1.5 rounded-xs bg-[#2E2E2E] border border-[#3A3A3A] hover:text-red-400 text-[#7A7A7A] transition-colors cursor-pointer"
+                title="Reset recordings for this line"
+              >
+                <RotateCcw size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Tier 2: Audio Playback & Record Buttons */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end gap-1.5 w-full">
           {/* Record / Stop Button */}
           <button
             onClick={isRecording ? stopRecording : startRecording}
-            className={`px-3 py-1.5 rounded-sm text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`col-span-2 sm:col-auto px-3.5 py-2 sm:py-1.5 rounded-xs text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs ${
               isRecording
                 ? "bg-red-700 hover:bg-red-600 text-white animate-pulse"
                 : "bg-[#B5A642] hover:bg-[#B5A642]/90 text-[#1F132A]"
@@ -458,12 +587,12 @@ export default function AudioComparison({
             {isRecording ? (
               <>
                 <Square size={12} className="fill-white" />
-                <span>Stop</span>
+                <span>Stop Recording</span>
               </>
             ) : (
               <>
-                <Mic size={12} />
-                <span>{hasRecordings ? "Record Again" : "Record"}</span>
+                <Mic size={13} />
+                <span>{hasRecordings ? "Record Again" : "Record Voice"}</span>
               </>
             )}
           </button>
@@ -471,10 +600,10 @@ export default function AudioComparison({
           {/* Native Dialogue Button */}
           <button
             onClick={onPlayNative}
-            className="px-2.5 py-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-xs font-mono text-[#E9E1D4] transition-all flex items-center gap-1 cursor-pointer"
+            className="px-2.5 py-2 sm:py-1.5 rounded-xs bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-xs font-mono text-[#E9E1D4] transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
             title="Listen to original native speaker"
           >
-            <Volume2 size={12} className="text-[#B5A642]" />
+            <Volume2 size={13} className="text-[#B5A642]" />
             <span>Native</span>
           </button>
 
@@ -482,7 +611,7 @@ export default function AudioComparison({
           {beforeAudioUrl && (
             <button
               onClick={() => playAudio("before")}
-              className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1 cursor-pointer ${
+              className={`px-2.5 py-2 sm:py-1.5 rounded-xs border text-xs font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activePlaying === "before"
                   ? "bg-[#B5A642] text-[#1F132A] font-bold border-[#B5A642]"
                   : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]"
@@ -498,7 +627,7 @@ export default function AudioComparison({
           {latestAudioUrl && (
             <button
               onClick={() => playAudio("latest")}
-              className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-1 cursor-pointer ${
+              className={`px-2.5 py-2 sm:py-1.5 rounded-xs border text-xs font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 activePlaying === "latest"
                   ? "bg-[#42946E] text-[#1F132A] font-bold border-[#42946E]"
                   : "bg-[#2E2E2E] border-[#3A3A3A] hover:border-[#42946E] text-[#E9E1D4]"
@@ -510,18 +639,67 @@ export default function AudioComparison({
             </button>
           )}
 
-          {/* Reset recordings */}
+          {/* Desktop Utilities (Download & Reset) */}
           {hasRecordings && (
-            <button
-              onClick={resetRecordings}
-              className="p-1.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:text-red-400 text-[#7A7A7A] transition-colors cursor-pointer"
-              title="Reset recordings for this line"
-            >
-              <RotateCcw size={12} />
-            </button>
+            <div className="hidden sm:flex items-center gap-1.5">
+              <button
+                onClick={handleDownloadAttempt}
+                className="p-1.5 rounded-xs bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[#E9E1D4]/80 hover:text-[#B5A642] transition-colors cursor-pointer"
+                title="Download this sentence recording"
+              >
+                <Download size={12} />
+              </button>
+              <button
+                onClick={resetRecordings}
+                className="p-1.5 rounded-xs bg-[#2E2E2E] border border-[#3A3A3A] hover:text-red-400 text-[#7A7A7A] transition-colors cursor-pointer"
+                title="Reset recordings for this line"
+              >
+                <RotateCcw size={12} />
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Detailed Word-by-Word Scoring Breakdown */}
+      {recognizedText && wordComparison.length > 0 && (
+        <div className="bg-[#2E2E2E]/80 border border-[#3A3A3A] p-2.5 rounded-xs space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono border-b border-[#3A3A3A]/60 pb-1.5">
+            <span className="text-[#B5A642] font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <span>Word Accuracy Breakdown:</span>
+            </span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-[#42946E] flex items-center gap-1 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#42946E]" />
+                {matchedCount}/{totalWords} Matched
+              </span>
+              {totalWords - matchedCount > 0 && (
+                <span className="text-[#E98C8C] flex items-center gap-1 font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#E98C8C]" />
+                  {totalWords - matchedCount} Stumbled
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Interactive Colored Word Chips */}
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {wordComparison.map((item, idx) => (
+              <span
+                key={idx}
+                className={`px-2 py-0.5 rounded-xs text-xs font-mono transition-all select-text ${
+                  item.isMatch
+                    ? "bg-[#26543F]/40 border border-[#42946E]/60 text-[#42946E] font-medium"
+                    : "bg-[#8C2727]/30 border border-[#E98C8C]/50 text-[#E98C8C] line-through decoration-[#E98C8C]/60"
+                }`}
+                title={item.isMatch ? "Accurately pronounced" : "Missed or mispronounced word - practice this!"}
+              >
+                {item.word}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Full Recognized Spoken Sentence */}
       {recognizedText && (

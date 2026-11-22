@@ -12,6 +12,7 @@ import {
   loadStreakData,
   recordMasteredLineProgress,
   StreakData,
+  exportLessonPracticeAudio,
 } from "@/features/shadowing";
 import { WordWithMeaning } from "@/features/vocabulary";
 import React, { use, useEffect, useRef, useState, useCallback } from "react";
@@ -47,6 +48,7 @@ import {
   Pause,
   PauseCircle,
   Clock,
+  Download,
 } from "lucide-react";
 
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
@@ -123,6 +125,17 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   // Video Validation Error (e.g. video exceeds 7-minute limit)
   const [durationError, setDurationError] = useState<string | null>(null);
 
+  // Dynamic Video Size: compact (ကျူံ့), normal (ပုံမှန်), wide (ချဲ့)
+  type VideoSize = "compact" | "normal" | "wide";
+  const [videoSize, setVideoSize] = useState<VideoSize>("normal");
+
+  const handleSetVideoSize = useCallback((size: VideoSize) => {
+    setVideoSize(size);
+    try {
+      localStorage.setItem("shadowing_video_size", size);
+    } catch {}
+  }, []);
+
   // Sync focusedIndex so the focus card persists during breath pauses & silence
   useEffect(() => {
     if (activeIndex !== -1) {
@@ -172,6 +185,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         setIsLessonCompleted(true);
         isLessonCompletedRef.current = true;
       }
+
+      const savedVideoSize = localStorage.getItem("shadowing_video_size") as VideoSize | null;
+      if (savedVideoSize && ["compact", "normal", "wide"].includes(savedVideoSize)) {
+        setVideoSize(savedVideoSize);
+      }
     } catch (e) {
       console.warn("Storage read error:", e);
     }
@@ -215,6 +233,23 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       } catch {}
     }
   }, [autoAdvanceEnabled, autoAdvanceSeconds]);
+
+  const [isExportingAudio, setIsExportingAudio] = useState(false);
+
+  const handleExportLessonAudio = async () => {
+    if (isExportingAudio) return;
+    setIsExportingAudio(true);
+    try {
+      const res = await exportLessonPracticeAudio(id, transcript.length, `lesson_${id.slice(0, 8)}`);
+      if (!res.success) {
+        alert(res.error || "No recordings found. Please record at least one sentence using the 'Voice Test' button first!");
+      }
+    } catch (e: any) {
+      alert("Error exporting audio: " + (e?.message || e));
+    } finally {
+      setIsExportingAudio(false);
+    }
+  };
 
   // Trigger Lesson Completion
   const triggerLessonCompletion = useCallback(
@@ -817,7 +852,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="bg-[#2E2E2E] min-h-screen text-[#E9E1D4] overflow-x-hidden">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6 p-2.5 sm:p-6">
+      <div className={`grid grid-cols-1 gap-3.5 sm:gap-6 p-2.5 sm:p-6 transition-all duration-300 ${videoSize === "wide" ? "lg:grid-cols-1 max-w-5xl" : "lg:grid-cols-3 max-w-7xl"} mx-auto`}>
         {/* Keyboard Shortcuts Modal */}
         <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
@@ -844,6 +879,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           totalLines={transcript.length}
           masteredCount={masteredIndices.size}
           reason={completionReason}
+          onExportAudio={handleExportLessonAudio}
         />
 
         {/* If video duration exceeds 7-minute limit, display warning banner */}
@@ -881,7 +917,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         ) : (
           <>
             {/* Left Column: Video + Unified Controls + Focus Card + Audio Comparison */}
-            <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+            <div className={`${videoSize === "wide" ? "w-full" : "lg:col-span-2"} space-y-3 sm:space-y-4`}>
           {/* Streamlined Top Bar (Distraction-Free & Mobile-Optimized) */}
           <div className="flex items-center justify-between gap-2 bg-[#1F132A] border border-[#3A3A3A] rounded-sm px-3 py-2 sm:px-4 sm:py-2.5">
             <div className="flex items-center gap-2 sm:gap-3 text-xs font-mono">
@@ -945,6 +981,21 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
                 <span className="hidden sm:inline">Leaderboard</span>
               </button>
 
+              {/* Export Practice Audio Button */}
+              <button
+                onClick={handleExportLessonAudio}
+                disabled={isExportingAudio}
+                className="flex items-center gap-1 px-2 py-1 sm:px-2.5 rounded-sm bg-[#2E2E2E] border border-[#3A3A3A] hover:border-[#B5A642] text-[10px] sm:text-[11px] font-mono text-[#E9E1D4]/80 hover:text-[#B5A642] transition-colors cursor-pointer disabled:opacity-50"
+                title="Download all your recorded practice audio as a single combined .wav file"
+              >
+                {isExportingAudio ? (
+                  <Loader2 size={12} className="animate-spin text-[#B5A642]" />
+                ) : (
+                  <Download size={12} className="text-[#B5A642]" />
+                )}
+                <span className="hidden sm:inline">{isExportingAudio ? "Exporting..." : "Export Audio"}</span>
+              </button>
+
               {/* Bookmark Button */}
               <button
                 onClick={toggleBookmark}
@@ -971,9 +1022,64 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
 
-          {/* Video Player Container */}
+          {/* Video Player Container with Dynamic Resize Controls */}
           <div className="space-y-2">
-            <div className="relative w-full aspect-video rounded-sm overflow-hidden border border-[#3A3A3A] bg-black shadow-lg">
+            {/* Dynamic Video Sizing Bar (ကျူံ့ / ပုံမှန် / ချဲ့) */}
+            <div className="flex items-center justify-between text-xs font-mono text-[#7A7A7A] px-0.5">
+              <span className="flex items-center gap-1.5 text-[11px] text-[#E9E1D4]/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#B5A642]" />
+                <span>Video Size:</span>
+              </span>
+
+              {/* Dynamic Sizing Controls */}
+              <div className="flex items-center gap-1 bg-[#1F132A] p-0.5 rounded-xs border border-[#3A3A3A]">
+                <button
+                  type="button"
+                  onClick={() => handleSetVideoSize("compact")}
+                  className={`px-2 py-0.5 rounded-xs text-[10px] font-mono transition-all cursor-pointer ${
+                    videoSize === "compact"
+                      ? "bg-[#B5A642] text-[#1F132A] font-bold shadow-xs"
+                      : "text-[#7A7A7A] hover:text-[#E9E1D4]"
+                  }`}
+                  title="Compact Video (ကျူံ့) - Smaller video for mobile and focus on sentences"
+                >
+                  Compact
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetVideoSize("normal")}
+                  className={`px-2 py-0.5 rounded-xs text-[10px] font-mono transition-all cursor-pointer ${
+                    videoSize === "normal"
+                      ? "bg-[#B5A642] text-[#1F132A] font-bold shadow-xs"
+                      : "text-[#7A7A7A] hover:text-[#E9E1D4]"
+                  }`}
+                  title="Normal Video (ပုံမှန်) - Standard 16:9 view"
+                >
+                  Normal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetVideoSize("wide")}
+                  className={`px-2 py-0.5 rounded-xs text-[10px] font-mono transition-all cursor-pointer ${
+                    videoSize === "wide"
+                      ? "bg-[#B5A642] text-[#1F132A] font-bold shadow-xs"
+                      : "text-[#7A7A7A] hover:text-[#E9E1D4]"
+                  }`}
+                  title="Wide Video (ချဲ့) - Expanded theater view"
+                >
+                  Wide
+                </button>
+              </div>
+            </div>
+
+            {/* Video Player Frame */}
+            <div
+              className={`relative w-full rounded-sm overflow-hidden border border-[#3A3A3A] bg-black shadow-lg transition-all duration-300 ${
+                videoSize === "compact"
+                  ? "max-w-md mx-auto aspect-video max-h-[175px] sm:max-h-[220px]"
+                  : "aspect-video"
+              }`}
+            >
               <div ref={videoRef} data-vjs-player />
             </div>
 
@@ -1399,7 +1505,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         </div>
 
         {/* Right Column: Interactive Synced Transcript & Progress */}
-        <div className="bg-[#1F132A] rounded-sm border border-[#3A3A3A] flex flex-col h-130 lg:h-[720px] overflow-hidden">
+        <div className={`bg-[#1F132A] rounded-sm border border-[#3A3A3A] flex flex-col ${videoSize === "wide" ? "h-96 lg:h-110" : "h-130 lg:h-[720px]"} overflow-hidden`}>
           {/* Transcript Header with Auto-scroll Toggle */}
           <div className="p-3.5 border-b border-[#3A3A3A] bg-[#1F132A] sticky top-0 rounded-t-sm z-10 space-y-2.5">
             <div className="flex items-center justify-between">

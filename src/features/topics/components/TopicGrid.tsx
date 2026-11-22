@@ -43,6 +43,23 @@ export default function Topic({ videos }: { videos: VideoItem[] }) {
                 <Link href={`/lessons/shadowing/${videoId}`}>
                   {/* Thumbnail Container */}
                   <div className="relative aspect-video rounded-md overflow-hidden border border-[#3A3A3A] bg-[#1F132A] group-hover:border-[#B5A642] transition-all">
+                    {/* Difficulty Badge */}
+                    {video.difficulty && (
+                      <div className="absolute top-2 left-2 z-20">
+                        <span
+                          className={`px-1.5 py-0.5 rounded-xs text-[10px] font-mono font-bold uppercase shadow-sm ${
+                            video.difficulty === "Beginner"
+                              ? "bg-[#26543F]/95 text-[#42946E] border border-[#367859]"
+                              : video.difficulty === "Advanced"
+                              ? "bg-[#3D1E56]/95 text-[#A667E4] border border-[#853BCE]/60"
+                              : "bg-[#3A351E]/95 text-[#B5A642] border border-[#B5A642]/60"
+                          }`}
+                        >
+                          {video.difficulty} {video.cefr ? `• ${video.cefr}` : ""}
+                        </span>
+                      </div>
+                    )}
+
                     {video.snippet?.thumbnails?.high?.url ? (
                       <Image
                         src={video.snippet.thumbnails.high.url}

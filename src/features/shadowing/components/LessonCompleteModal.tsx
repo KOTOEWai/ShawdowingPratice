@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Award, CheckCircle2, X, ArrowRight, RotateCcw } from "lucide-react";
+import { Trophy, Award, CheckCircle2, X, ArrowRight, RotateCcw, Download } from "lucide-react";
 import Link from "next/link";
 
 interface LessonCompleteModalProps {
@@ -11,6 +11,7 @@ interface LessonCompleteModalProps {
   masteredCount: number;
   totalLines: number;
   reason: "mastery" | "playthrough" | "manual";
+  onExportAudio?: () => void;
 }
 
 export const LessonCompleteModal: React.FC<LessonCompleteModalProps> = ({
@@ -19,6 +20,7 @@ export const LessonCompleteModal: React.FC<LessonCompleteModalProps> = ({
   masteredCount,
   totalLines,
   reason,
+  onExportAudio,
 }) => {
   if (!isOpen) return null;
 
@@ -86,6 +88,17 @@ export const LessonCompleteModal: React.FC<LessonCompleteModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Export Audio Button */}
+          {onExportAudio && (
+            <button
+              onClick={onExportAudio}
+              className="w-full py-2.5 bg-[#2E2E2E] border border-[#B5A642] text-[#B5A642] hover:bg-[#B5A642] hover:text-[#1F132A] text-xs font-mono font-bold rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer mb-3"
+            >
+              <Download size={14} />
+              <span>Download My Practice Audio (.wav)</span>
+            </button>
+          )}
 
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-2.5">

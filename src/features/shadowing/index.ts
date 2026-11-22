@@ -8,3 +8,4 @@ export { default as SubtitleSyncControl } from "./components/SubtitleSyncControl
 export * from "./types";
 export * from "./utils/transcriptSync";
 export * from "./utils/streakManager";
+export * from "./utils/audioExport";
