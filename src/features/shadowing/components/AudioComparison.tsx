@@ -7,6 +7,8 @@ interface AttemptMeta {
   beforeDate: string;
   latestDate: string;
   totalAttempts: number;
+  recognizedText?: string;
+  speechScore?: number;
 }
 
 interface AudioComparisonProps {
@@ -90,7 +92,18 @@ export default function AudioComparison({
 
       setBeforeAudioUrl(storedBefore);
       setLatestAudioUrl(storedLatest);
-      setAttemptMeta(storedMeta ? JSON.parse(storedMeta) : null);
+      if (storedMeta) {
+        try {
+          const parsed: AttemptMeta = JSON.parse(storedMeta);
+          setAttemptMeta(parsed);
+          if (parsed.recognizedText) setRecognizedText(parsed.recognizedText);
+          if (parsed.speechScore !== undefined) setSpeechScore(parsed.speechScore);
+        } catch {
+          setAttemptMeta(null);
+        }
+      } else {
+        setAttemptMeta(null);
+      }
     } catch {
       setBeforeAudioUrl(null);
       setLatestAudioUrl(null);
@@ -171,6 +184,14 @@ export default function AudioComparison({
               setRecognizedText(heard);
               const score = calculateSimilarity(sentenceText, heard);
               setSpeechScore(score);
+
+              try {
+                const storedMeta = localStorage.getItem(metaStorageKey);
+                const meta = storedMeta ? JSON.parse(storedMeta) : {};
+                meta.recognizedText = heard;
+                meta.speechScore = score;
+                localStorage.setItem(metaStorageKey, JSON.stringify(meta));
+              } catch {}
             }
           };
           rec.onerror = () => {};
@@ -285,6 +306,8 @@ export default function AudioComparison({
         beforeDate: nowIso,
         latestDate: nowIso,
         totalAttempts: 1,
+        recognizedText: recognizedText || undefined,
+        speechScore: speechScore ?? undefined,
       };
       setAttemptMeta(meta);
 
@@ -303,6 +326,8 @@ export default function AudioComparison({
         beforeDate: attemptMeta?.beforeDate || nowIso,
         latestDate: nowIso,
         totalAttempts: newAttempts,
+        recognizedText: recognizedText || attemptMeta?.recognizedText,
+        speechScore: speechScore ?? attemptMeta?.speechScore,
       };
       setAttemptMeta(meta);
 
@@ -338,13 +363,15 @@ export default function AudioComparison({
   };
 
   const resetRecordings = () => {
-    if (window.confirm("Reset your Before and After recordings for this sentence?")) {
+    if (window.confirm("Reset your recordings for this sentence?")) {
       localStorage.removeItem(beforeStorageKey);
       localStorage.removeItem(latestStorageKey);
       localStorage.removeItem(metaStorageKey);
       setBeforeAudioUrl(null);
       setLatestAudioUrl(null);
       setAttemptMeta(null);
+      setSpeechScore(null);
+      setRecognizedText(null);
     }
   };
 
@@ -410,11 +437,6 @@ export default function AudioComparison({
                 >
                   {speechScore}%
                 </span>
-                {recognizedText && (
-                  <span className="text-[11px] text-[#7A7A7A] hidden sm:inline truncate max-w-[200px]" title={`Heard: "${recognizedText}"`}>
-                    (&quot;{recognizedText}&quot;)
-                  </span>
-                )}
               </span>
             ) : (
               <span className="text-[11px] text-[#7A7A7A]">Record to compare with Native:</span>
@@ -500,6 +522,16 @@ export default function AudioComparison({
           )}
         </div>
       </div>
+
+      {/* Full Recognized Spoken Sentence */}
+      {recognizedText && (
+        <div className="bg-[#2E2E2E]/60 border border-[#3A3A3A] px-3 py-2 rounded-xs text-xs font-mono text-[#E9E1D4] flex items-start gap-2 leading-relaxed">
+          <span className="text-[#B5A642] font-semibold shrink-0">You said:</span>
+          <p className="select-text break-words text-[#E9E1D4]/90">
+            &ldquo;{recognizedText}&rdquo;
+          </p>
+        </div>
+      )}
     </div>
   );
 }
