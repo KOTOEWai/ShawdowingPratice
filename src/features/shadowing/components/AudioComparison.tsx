@@ -36,6 +36,11 @@ export default function AudioComparison({
   const [latestAudioUrl, setLatestAudioUrl] = useState<string | null>(null);
   const [attemptMeta, setAttemptMeta] = useState<AttemptMeta | null>(null);
 
+  // Pronunciation Accuracy & Speech-to-Text
+  const [speechScore, setSpeechScore] = useState<number | null>(null);
+  const [recognizedText, setRecognizedText] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
   // Playback states
   const [activePlaying, setActivePlaying] = useState<"before" | "latest" | null>(null);
 
@@ -62,6 +67,14 @@ export default function AudioComparison({
     setActivePlaying(null);
     setIsRecording(false);
     setRecordSeconds(0);
+    setSpeechScore(null);
+    setRecognizedText(null);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
     if (timerRef.current) clearInterval(timerRef.current);
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     if (audioCtxRef.current) {
@@ -85,12 +98,88 @@ export default function AudioComparison({
     }
   }, [lessonId, sentenceIndex, sentenceText, beforeStorageKey, latestStorageKey, metaStorageKey]);
 
+  const calculateSimilarity = (original: string, spoken: string): number => {
+    const clean = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "")
+        .split(/\s+/)
+        .filter(Boolean);
+    const origWords = clean(original);
+    const spokenWords = clean(spoken);
+    if (origWords.length === 0) return 100;
+    if (spokenWords.length === 0) return 0;
+
+    let matches = 0;
+    const spokenCopy = [...spokenWords];
+    for (const word of origWords) {
+      const idx = spokenCopy.indexOf(word);
+      if (idx !== -1) {
+        matches++;
+        spokenCopy.splice(idx, 1);
+      }
+    }
+    return Math.min(100, Math.round((matches / origWords.length) * 100));
+  };
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-      const mediaRecorder = new MediaRecorder(stream);
+
+      // Cross-browser MIME detection for iOS / Safari / Chrome compatibility
+      let mimeType = "";
+      if (typeof MediaRecorder !== "undefined") {
+        if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          mimeType = "audio/webm;codecs=opus";
+        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+          mimeType = "audio/webm";
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          mimeType = "audio/mp4";
+        } else if (MediaRecorder.isTypeSupported("audio/aac")) {
+          mimeType = "audio/aac";
+        }
+      }
+
+      const options = mimeType ? { mimeType } : undefined;
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
+
+      // Initialize Web Speech Recognition API if supported (Chrome, Edge, Safari, iOS)
+      const SpeechRecClass =
+        typeof window !== "undefined"
+          ? (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).SpeechRecognition ||
+            (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).webkitSpeechRecognition
+          : null;
+
+      if (SpeechRecClass) {
+        try {
+          const rec = new SpeechRecClass();
+          rec.lang = "en-US";
+          rec.continuous = true;
+          rec.interimResults = false;
+          let transcriptBuffer = "";
+
+          rec.onresult = (e: any) => {
+            for (let i = e.resultIndex; i < e.results.length; ++i) {
+              if (e.results[i].isFinal) {
+                transcriptBuffer += " " + e.results[i][0].transcript;
+              }
+            }
+            if (transcriptBuffer.trim()) {
+              const heard = transcriptBuffer.trim();
+              setRecognizedText(heard);
+              const score = calculateSimilarity(sentenceText, heard);
+              setSpeechScore(score);
+            }
+          };
+          rec.onerror = () => {};
+          rec.start();
+          recognitionRef.current = rec;
+        } catch (e) {
+          console.warn("Speech recognition init skipped:", e);
+        }
+      }
 
       // Initialize Web Audio API for Real-time Waveform
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -136,7 +225,7 @@ export default function AudioComparison({
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
 
         // Convert blob to base64 Data URL for persistent storage
         const reader = new FileReader();
@@ -169,6 +258,11 @@ export default function AudioComparison({
   };
 
   const stopRecording = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
@@ -412,6 +506,38 @@ export default function AudioComparison({
             )}
           </div>
         </div>
+
+        {/* Real-time Pronunciation Match Score & Heard Feedback */}
+        {speechScore !== null && (
+          <div className="bg-[#2E2E2E] border border-[#3A3A3A] p-2.5 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <span className="text-[#E9E1D4]/80">Pronunciation Match:</span>
+              <span
+                className={`font-bold px-2 py-0.5 rounded-xs text-[11px] ${
+                  speechScore >= 80
+                    ? "bg-[#26543F] text-[#42946E] border border-[#367859]"
+                    : speechScore >= 60
+                    ? "bg-[#B5A642]/20 text-[#B5A642] border border-[#B5A642]/40"
+                    : "bg-[#8C2727]/20 text-[#E98C8C] border border-[#8C2727]/40"
+                }`}
+              >
+                {speechScore}% Accuracy
+              </span>
+              <span className="text-[11px] text-[#7A7A7A] hidden md:inline">
+                {speechScore >= 85
+                  ? "🔥 Excellent Rhythm & Connected Speech!"
+                  : speechScore >= 65
+                  ? "👍 Good rhythm, try one more time!"
+                  : "🎧 Listen to Native and shadow aloud!"}
+              </span>
+            </div>
+            {recognizedText && (
+              <span className="text-[11px] text-[#7A7A7A] truncate max-w-xs" title={`Speech Heard: "${recognizedText}"`}>
+                Heard: &quot;{recognizedText}&quot;
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Motivational Accent Progression Notice */}
         {hasMultipleAttempts && (
